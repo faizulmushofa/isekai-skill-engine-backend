@@ -1,0 +1,245 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =========================
+// USERS
+// =========================
+model User {
+  id           String        @id @default(uuid()) @db.Uuid
+  email        String        @unique @db.VarChar(255)
+  username     String        @unique @db.VarChar(100)
+  passwordHash String        @map("password_hash") @db.VarChar(255)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamp
+  updatedAt    DateTime?     @map("updated_at") @db.Timestamp
+  
+  userGoals    UserGoal[]
+  journals     Journal[]
+  projects     Project[]
+  quizAttempts QuizAttempt[]
+  skillEvents  SkillEvent[]
+  userSkills   UserSkill[]
+
+  @@map("users")
+}
+
+// =========================
+// CAREER GOALS
+// =========================
+model CareerGoal {
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String            @db.VarChar(200)
+  description String?           @db.Text
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamp
+  updatedAt   DateTime?         @map("updated_at") @db.Timestamp
+
+  userGoals        UserGoal[]
+  careerGoalSkills CareerGoalSkill[]
+
+  @@map("career_goals")
+}
+
+// =========================
+// USER <-> CAREER GOAL
+// =========================
+model UserGoal {
+  userId       String     @map("user_id") @db.Uuid
+  careerGoalId String     @map("career_goal_id") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamp
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  careerGoal CareerGoal @relation(fields: [careerGoalId], references: [id], onDelete: Cascade)
+
+  @@id([userId, careerGoalId])
+  @@map("user_goals")
+}
+
+// =========================
+// SKILLS (HIERARCHY)
+// =========================
+model Skill {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @db.VarChar(200)
+  description String?   @db.Text
+  parentId    String?   @map("parent_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamp
+  updatedAt   DateTime? @map("updated_at") @db.Timestamp
+
+  parent           Skill?            @relation("SkillToSkill", fields: [parentId], references: [id], onDelete: SetNull)
+  children         Skill[]           @relation("SkillToSkill")
+  careerGoalSkills CareerGoalSkill[]
+  skillEvents      SkillEvent[]
+  userSkills       UserSkill[]
+
+  @@map("skills")
+}
+
+// =========================
+// CAREER GOAL <-> SKILL
+// =========================
+model CareerGoalSkill {
+  careerGoalId String     @map("career_goal_id") @db.Uuid
+  skillId      String     @map("skill_id") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamp
+
+  careerGoal CareerGoal @relation(fields: [careerGoalId], references: [id], onDelete: Cascade)
+  skill      Skill      @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([careerGoalId, skillId])
+  @@map("career_goal_skills")
+}
+
+// =========================
+// JOURNALS
+// =========================
+model Journal {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  title     String    @db.VarChar(255)
+  content   String    @db.Text
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamp
+  updatedAt DateTime? @map("updated_at") @db.Timestamp
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("journals")
+}
+
+// =========================
+// PROJECTS
+// =========================
+model Project {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  title         String    @db.VarChar(255)
+  description   String?   @db.Text
+  repositoryUrl String?   @map("repository_url") @db.VarChar(500)
+  reportContent String?   @map("report_content") @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp
+  updatedAt     DateTime? @map("updated_at") @db.Timestamp
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("projects")
+}
+
+// =========================
+// QUIZZES
+// =========================
+model Quiz {
+  id          String    @id @default(uuid()) @db.Uuid
+  title       String    @db.VarChar(255)
+  description String?   @db.Text
+  difficulty  String?   @db.VarChar(50)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamp
+  updatedAt   DateTime? @map("updated_at") @db.Timestamp
+
+  questions    Question[]
+  quizAttempts QuizAttempt[]
+
+  @@map("quizzes")
+}
+
+// =========================
+// QUESTIONS
+// =========================
+model Question {
+  id           String    @id @default(uuid()) @db.Uuid
+  quizId       String    @map("quiz_id") @db.Uuid
+  questionText String    @map("question_text") @db.Text
+  type         String    @db.VarChar(50)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp
+
+  quiz        Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quizAnswers QuizAnswer[]
+
+  @@map("questions")
+}
+
+// =========================
+// QUIZ ATTEMPTS
+// =========================
+model QuizAttempt {
+  id        String    @id @default(uuid()) @db.Uuid
+  quizId    String    @map("quiz_id") @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  score     Int?
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamp
+
+  quiz        Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizAnswers QuizAnswer[]
+
+  @@map("quiz_attempts")
+}
+
+// =========================
+// QUIZ ANSWERS
+// =========================
+model QuizAnswer {
+  id            String    @id @default(uuid()) @db.Uuid
+  quizAttemptId String    @map("quiz_attempt_id") @db.Uuid
+  questionId    String    @map("question_id") @db.Uuid
+  answerText    String    @map("answer_text") @db.Text
+  isCorrect     Boolean?  @map("is_correct")
+  score         Int?
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp
+
+  quizAttempt QuizAttempt @relation(fields: [quizAttemptId], references: [id], onDelete: Cascade)
+  question    Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("quiz_answers")
+}
+
+// =========================
+// SKILL EVENTS (CORE ENGINE)
+// =========================
+enum SourceType {
+  JOURNAL
+  PROJECT
+  QUIZ
+}
+
+model SkillEvent {
+  id           String     @id @default(uuid()) @db.Uuid
+  userId       String     @map("user_id") @db.Uuid
+  skillId      String     @map("skill_id") @db.Uuid
+  sourceType   SourceType @map("source_type")
+  sourceId     String     @map("source_id") @db.Uuid
+  contribution Int
+  reason       String?    @db.Text
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamp
+  updatedAt    DateTime?  @map("updated_at") @db.Timestamp
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@map("skill_events")
+}
+
+// =========================
+// USER SKILLS (AGGREGATE)
+// =========================
+model UserSkill {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  skillId   String    @map("skill_id") @db.Uuid
+  progress  Int       @default(0)
+  updatedAt DateTime? @map("updated_at") @db.Timestamp
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId])
+  @@map("user_skills")
+}
