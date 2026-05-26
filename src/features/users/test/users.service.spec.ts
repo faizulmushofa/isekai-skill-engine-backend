@@ -1,4 +1,4 @@
-jest.mock('../../../../generated/prisma/client', () => {
+jest.mock('@prisma/client', () => {
   return {
     PrismaClient: class {},
     Prisma: {},
@@ -10,7 +10,7 @@ import { UsersService } from '../users.service';
 import { UsersRepository } from '../users.repository';
 import { UserResponse } from '../mapper/user.mapper';
 import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
-import { User } from '../../../../generated/prisma/client';
+import { User } from '@prisma/client';
 
 describe('UsersService', () => {
   let service: UsersService;

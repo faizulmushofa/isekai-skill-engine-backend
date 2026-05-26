@@ -2,10 +2,11 @@ import { Injectable, NotFoundException, ConflictException, BadRequestException }
 import { UsersRepository } from './users.repository';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserMapper, UserResponse } from './mapper/user.mapper';
+import { User } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly usersRepository: UsersRepository) {}
+  constructor(private readonly usersRepository: UsersRepository) { }
 
   async findById(userId: string): Promise<UserResponse> {
     const user = await this.usersRepository.findById(userId);
@@ -21,6 +22,42 @@ export class UsersService {
       throw new NotFoundException(`User with email '${email}' not found`);
     }
     return UserMapper.toResponse(user);
+  }
+
+  async findRawByEmail(email: string): Promise<User | null> {
+    return this.usersRepository.findByEmail(email);
+  }
+
+  async findRawById(id: string): Promise<User | null> {
+    return this.usersRepository.findById(id);
+  }
+
+  async createUser(data: { email: string; username: string; passwordHash: string }): Promise<UserResponse> {
+    // Validasi keunikan email
+    const existingEmail = await this.usersRepository.findByEmail(data.email);
+    if (existingEmail) {
+      throw new ConflictException(`Email '${data.email}' sudah terdaftar`);
+    }
+
+    // Validasi keunikan username
+    const existingUsername = await this.usersRepository.findByUsername(data.username);
+    if (existingUsername) {
+      throw new ConflictException(`Username '${data.username}' sudah digunakan`);
+    }
+
+    const user = await this.usersRepository.create({
+      email: data.email,
+      username: data.username,
+      passwordHash: data.passwordHash,
+    });
+
+    return UserMapper.toResponse(user);
+  }
+
+  async updateRefreshTokenHash(userId: string, hash: string | null): Promise<void> {
+    await this.usersRepository.update(userId, {
+      refreshTokenHash: hash,
+    });
   }
 
   async updateUser(userId: string, payload: UpdateUserDto): Promise<UserResponse> {
