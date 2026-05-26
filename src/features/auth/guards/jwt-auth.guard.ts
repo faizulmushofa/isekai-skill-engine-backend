@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '../../../infrastructure/jwt/jwt.service';
 
 @Injectable()
@@ -14,7 +19,9 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     if (!authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Format token Authorization harus menggunakan skema Bearer');
+      throw new UnauthorizedException(
+        'Format token Authorization harus menggunakan skema Bearer',
+      );
     }
 
     const token = authHeader.split(' ')[1];
@@ -27,7 +34,9 @@ export class JwtAuthGuard implements CanActivate {
       request.user = { id: payload.userId };
       return true;
     } catch (err) {
-      throw new UnauthorizedException('Sesi tidak valid atau access token telah kedaluwarsa');
+      throw new UnauthorizedException(
+        'Sesi tidak valid atau access token telah kedaluwarsa',
+      );
     }
   }
 }

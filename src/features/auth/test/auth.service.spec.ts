@@ -127,20 +127,39 @@ describe('AuthService', () => {
         accessToken: 'access_token_123',
       });
 
-      expect(mockUsersService.findRawByEmail).toHaveBeenCalledWith('test@example.com');
-      expect(mockPasswordService.compare).toHaveBeenCalledWith('password123', 'hashed_password');
-      
-      const expectedHash = crypto.createHash('sha256').update('refresh_token_123').digest('hex');
-      expect(mockUsersService.updateRefreshTokenHash).toHaveBeenCalledWith('user-uuid-1', expectedHash);
-      expect(mockJwtService.setRefreshTokenCookie).toHaveBeenCalledWith(mockResponse, 'refresh_token_123');
+      expect(mockUsersService.findRawByEmail).toHaveBeenCalledWith(
+        'test@example.com',
+      );
+      expect(mockPasswordService.compare).toHaveBeenCalledWith(
+        'password123',
+        'hashed_password',
+      );
+
+      const expectedHash = crypto
+        .createHash('sha256')
+        .update('refresh_token_123')
+        .digest('hex');
+      expect(mockUsersService.updateRefreshTokenHash).toHaveBeenCalledWith(
+        'user-uuid-1',
+        expectedHash,
+      );
+      expect(mockJwtService.setRefreshTokenCookie).toHaveBeenCalledWith(
+        mockResponse,
+        'refresh_token_123',
+      );
     });
 
     it('harus melempar UnauthorizedException jika pengguna tidak ditemukan', async () => {
       mockUsersService.findRawByEmail.mockResolvedValue(null);
 
-      const payload = { email: 'nonexistent@example.com', password: 'password' };
+      const payload = {
+        email: 'nonexistent@example.com',
+        password: 'password',
+      };
 
-      await expect(service.login(payload, mockResponse)).rejects.toThrow(UnauthorizedException);
+      await expect(service.login(payload, mockResponse)).rejects.toThrow(
+        UnauthorizedException,
+      );
       expect(mockPasswordService.compare).not.toHaveBeenCalled();
     });
 
@@ -150,20 +169,27 @@ describe('AuthService', () => {
 
       const payload = { email: 'test@example.com', password: 'wrongpassword' };
 
-      await expect(service.login(payload, mockResponse)).rejects.toThrow(UnauthorizedException);
+      await expect(service.login(payload, mockResponse)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 
   describe('refresh', () => {
     it('harus berhasil memutar token jika refresh token valid, hash cocok, dan menyetel kuki via JwtService', async () => {
       const validRefreshToken = 'valid_refresh_token';
-      const tokenHash = crypto.createHash('sha256').update(validRefreshToken).digest('hex');
+      const tokenHash = crypto
+        .createHash('sha256')
+        .update(validRefreshToken)
+        .digest('hex');
       const userWithSession = { ...mockRawUser, refreshTokenHash: tokenHash };
 
       mockJwtService.extractRefreshToken.mockReturnValue(validRefreshToken);
-      mockJwtService.verifyRefreshToken.mockReturnValue({ userId: 'user-uuid-1' });
+      mockJwtService.verifyRefreshToken.mockReturnValue({
+        userId: 'user-uuid-1',
+      });
       mockUsersService.findRawById.mockResolvedValue(userWithSession);
-      
+
       mockJwtService.signAccessToken.mockReturnValue('new_access_token');
       mockJwtService.signRefreshToken.mockReturnValue('new_refresh_token');
 
@@ -173,31 +199,53 @@ describe('AuthService', () => {
         accessToken: 'new_access_token',
       });
 
-      expect(mockJwtService.extractRefreshToken).toHaveBeenCalledWith(mockRequest);
-      expect(mockJwtService.verifyRefreshToken).toHaveBeenCalledWith(validRefreshToken);
+      expect(mockJwtService.extractRefreshToken).toHaveBeenCalledWith(
+        mockRequest,
+      );
+      expect(mockJwtService.verifyRefreshToken).toHaveBeenCalledWith(
+        validRefreshToken,
+      );
       expect(mockUsersService.findRawById).toHaveBeenCalledWith('user-uuid-1');
-      
-      const newExpectedHash = crypto.createHash('sha256').update('new_refresh_token').digest('hex');
-      expect(mockUsersService.updateRefreshTokenHash).toHaveBeenCalledWith('user-uuid-1', newExpectedHash);
-      expect(mockJwtService.setRefreshTokenCookie).toHaveBeenCalledWith(mockResponse, 'new_refresh_token');
+
+      const newExpectedHash = crypto
+        .createHash('sha256')
+        .update('new_refresh_token')
+        .digest('hex');
+      expect(mockUsersService.updateRefreshTokenHash).toHaveBeenCalledWith(
+        'user-uuid-1',
+        newExpectedHash,
+      );
+      expect(mockJwtService.setRefreshTokenCookie).toHaveBeenCalledWith(
+        mockResponse,
+        'new_refresh_token',
+      );
     });
 
     it('harus melempar UnauthorizedException jika refresh token tidak diekstrak', async () => {
       mockJwtService.extractRefreshToken.mockReturnValue(undefined);
 
-      await expect(service.refresh(mockRequest, mockResponse)).rejects.toThrow(UnauthorizedException);
+      await expect(service.refresh(mockRequest, mockResponse)).rejects.toThrow(
+        UnauthorizedException,
+      );
       expect(mockJwtService.verifyRefreshToken).not.toHaveBeenCalled();
     });
 
     it('harus melempar UnauthorizedException jika hash refresh token tidak cocok dengan DB', async () => {
       const incomingRefreshToken = 'wrong_refresh_token';
-      const userWithDifferentSession = { ...mockRawUser, refreshTokenHash: 'some_other_hash' };
+      const userWithDifferentSession = {
+        ...mockRawUser,
+        refreshTokenHash: 'some_other_hash',
+      };
 
       mockJwtService.extractRefreshToken.mockReturnValue(incomingRefreshToken);
-      mockJwtService.verifyRefreshToken.mockReturnValue({ userId: 'user-uuid-1' });
+      mockJwtService.verifyRefreshToken.mockReturnValue({
+        userId: 'user-uuid-1',
+      });
       mockUsersService.findRawById.mockResolvedValue(userWithDifferentSession);
 
-      await expect(service.refresh(mockRequest, mockResponse)).rejects.toThrow(UnauthorizedException);
+      await expect(service.refresh(mockRequest, mockResponse)).rejects.toThrow(
+        UnauthorizedException,
+      );
       expect(mockJwtService.signAccessToken).not.toHaveBeenCalled();
     });
   });
@@ -205,9 +253,14 @@ describe('AuthService', () => {
   describe('logout', () => {
     it('harus menghapus hash refresh token di DB dan menghapus kuki via JwtService', async () => {
       await service.logout('user-uuid-1', mockResponse);
-      
-      expect(mockUsersService.updateRefreshTokenHash).toHaveBeenCalledWith('user-uuid-1', null);
-      expect(mockJwtService.clearRefreshTokenCookie).toHaveBeenCalledWith(mockResponse);
+
+      expect(mockUsersService.updateRefreshTokenHash).toHaveBeenCalledWith(
+        'user-uuid-1',
+        null,
+      );
+      expect(mockJwtService.clearRefreshTokenCookie).toHaveBeenCalledWith(
+        mockResponse,
+      );
     });
   });
 });

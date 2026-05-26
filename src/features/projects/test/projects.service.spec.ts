@@ -73,7 +73,9 @@ describe('ProjectsService', () => {
 
     it('should throw BadRequestException if title is empty', async () => {
       const dto = { title: '   ', description: 'Some description' };
-      await expect(service.create('user-uuid-1', dto)).rejects.toThrow(BadRequestException);
+      await expect(service.create('user-uuid-1', dto)).rejects.toThrow(
+        BadRequestException,
+      );
       expect(mockPrismaService.project.create).not.toHaveBeenCalled();
     });
   });
@@ -107,13 +109,17 @@ describe('ProjectsService', () => {
     it('should throw NotFoundException if project belongs to another user', async () => {
       mockPrismaService.project.findUnique.mockResolvedValue(mockProject); // belongs to user-uuid-1
 
-      await expect(service.findOne('another-user-id', 'project-uuid-1')).rejects.toThrow(NotFoundException);
+      await expect(
+        service.findOne('another-user-id', 'project-uuid-1'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw NotFoundException if project does not exist', async () => {
       mockPrismaService.project.findUnique.mockResolvedValue(null);
 
-      await expect(service.findOne('user-uuid-1', 'nonexistent-uuid')).rejects.toThrow(NotFoundException);
+      await expect(
+        service.findOne('user-uuid-1', 'nonexistent-uuid'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

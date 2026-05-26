@@ -49,7 +49,10 @@ describe('JournalsService', () => {
     it('should successfully save a journal with correct fields', async () => {
       mockPrismaService.journal.create.mockResolvedValue(mockJournal);
 
-      const dto = { title: 'My First Journey', content: 'Today I woke up in another world...' };
+      const dto = {
+        title: 'My First Journey',
+        content: 'Today I woke up in another world...',
+      };
       const result = await service.create('user-uuid-1', dto);
 
       expect(result).toEqual(mockJournal);
@@ -64,13 +67,17 @@ describe('JournalsService', () => {
 
     it('should throw BadRequestException if title is empty', async () => {
       const dto = { title: '', content: 'Valid content' };
-      await expect(service.create('user-uuid-1', dto)).rejects.toThrow(BadRequestException);
+      await expect(service.create('user-uuid-1', dto)).rejects.toThrow(
+        BadRequestException,
+      );
       expect(mockPrismaService.journal.create).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException if content is empty', async () => {
       const dto = { title: 'Valid Title', content: '   ' };
-      await expect(service.create('user-uuid-1', dto)).rejects.toThrow(BadRequestException);
+      await expect(service.create('user-uuid-1', dto)).rejects.toThrow(
+        BadRequestException,
+      );
       expect(mockPrismaService.journal.create).not.toHaveBeenCalled();
     });
   });
@@ -104,13 +111,17 @@ describe('JournalsService', () => {
     it('should throw NotFoundException if journal belongs to another user', async () => {
       mockPrismaService.journal.findUnique.mockResolvedValue(mockJournal); // belongs to user-uuid-1
 
-      await expect(service.findOne('another-user-id', 'journal-uuid-1')).rejects.toThrow(NotFoundException);
+      await expect(
+        service.findOne('another-user-id', 'journal-uuid-1'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw NotFoundException if journal does not exist', async () => {
       mockPrismaService.journal.findUnique.mockResolvedValue(null);
 
-      await expect(service.findOne('user-uuid-1', 'nonexistent-uuid')).rejects.toThrow(NotFoundException);
+      await expect(
+        service.findOne('user-uuid-1', 'nonexistent-uuid'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

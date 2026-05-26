@@ -11,4 +11,3 @@ import { JwtModule } from '../../infrastructure/jwt/jwt.module';
   exports: [UsersService],
 })
 export class UsersModule {}
-

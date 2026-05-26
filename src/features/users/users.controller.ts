@@ -1,4 +1,12 @@
-import { Controller, Get, Patch, Param, Body, ForbiddenException, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Body,
+  ForbiddenException,
+  UseGuards,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponse } from './mapper/user.mapper';
@@ -22,7 +30,9 @@ export class UsersController {
     @CurrentUser() userId: string,
   ): Promise<UserResponse> {
     if (id !== userId) {
-      throw new ForbiddenException('Anda tidak memiliki akses untuk melihat profil pengguna lain');
+      throw new ForbiddenException(
+        'Anda tidak memiliki akses untuk melihat profil pengguna lain',
+      );
     }
     return this.usersService.findById(id);
   }
@@ -34,9 +44,10 @@ export class UsersController {
     @CurrentUser() userId: string,
   ): Promise<UserResponse> {
     if (id !== userId) {
-      throw new ForbiddenException('Anda tidak memiliki akses untuk mengubah profil pengguna lain');
+      throw new ForbiddenException(
+        'Anda tidak memiliki akses untuk mengubah profil pengguna lain',
+      );
     }
     return this.usersService.updateUser(id, payload);
   }
 }
-

@@ -65,7 +65,7 @@ describe('AuthController', () => {
   describe('register', () => {
     it('harus memanggil authService.register dan mengembalikan UserResponse', async () => {
       mockAuthService.register.mockResolvedValue(mockUserResponse);
-      
+
       const payload = {
         email: 'test@example.com',
         username: 'testuser',
@@ -86,7 +86,7 @@ describe('AuthController', () => {
       });
 
       const payload = { identifier: 'testuser', password: 'password123' };
-      
+
       const result = await controller.login(payload, mockResponse);
 
       expect(result).toEqual({ accessToken: 'access_token_123' });
@@ -103,7 +103,10 @@ describe('AuthController', () => {
       const result = await controller.refresh(mockRequest, mockResponse);
 
       expect(result).toEqual({ accessToken: 'new_access_token' });
-      expect(mockAuthService.refresh).toHaveBeenCalledWith(mockRequest, mockResponse);
+      expect(mockAuthService.refresh).toHaveBeenCalledWith(
+        mockRequest,
+        mockResponse,
+      );
     });
   });
 
@@ -112,7 +115,10 @@ describe('AuthController', () => {
       // @CurrentUser() sudah meng-resolve userId sebelum masuk handler
       await controller.logout('user-uuid-1', mockResponse);
 
-      expect(mockAuthService.logout).toHaveBeenCalledWith('user-uuid-1', mockResponse);
+      expect(mockAuthService.logout).toHaveBeenCalledWith(
+        'user-uuid-1',
+        mockResponse,
+      );
     });
   });
 });

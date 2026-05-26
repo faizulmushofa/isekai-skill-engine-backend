@@ -7,6 +7,7 @@ import { SkillsModule } from './features/skills/skills.module';
 import { SkillEventsModule } from './features/skill-events/skill-events.module';
 import { JournalsModule } from './features/journals/journals.module';
 import { ProjectsModule } from './features/projects/projects.module';
+import { QuizModule } from './features/quiz/quiz.module';
 import { SkillAggregatorModule } from './features/skill-aggregator/skill-aggregator.module';
 
 @Module({
@@ -19,6 +20,7 @@ import { SkillAggregatorModule } from './features/skill-aggregator/skill-aggrega
     SkillEventsModule,
     JournalsModule,
     ProjectsModule,
+    QuizModule,
     SkillAggregatorModule,
   ],
   controllers: [],
