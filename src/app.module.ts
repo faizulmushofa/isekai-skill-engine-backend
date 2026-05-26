@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
+import { SecurityModule } from './shared/security/security.module';
 import { AuthModule } from './features/auth/auth.module';
 import { UsersModule } from './features/users/users.module';
 import { SkillsModule } from './features/skills/skills.module';
@@ -10,6 +11,7 @@ import { SkillAggregatorModule } from './features/skill-aggregator/skill-aggrega
 @Module({
   imports: [
     PrismaModule,
+    SecurityModule,
     AuthModule,
     UsersModule,
     SkillsModule,
