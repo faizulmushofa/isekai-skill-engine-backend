@@ -3,5 +3,7 @@ import { SkillAggregatorService } from './skill-aggregator.service';
 
 @Controller('skill-aggregator')
 export class SkillAggregatorController {
-  constructor(private readonly skillAggregatorService: SkillAggregatorService) {}
+  constructor(
+    private readonly skillAggregatorService: SkillAggregatorService,
+  ) {}
 }

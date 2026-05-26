@@ -91,14 +91,24 @@ describe('UsersController', () => {
   describe('update', () => {
     it('harus memanggil service.updateUser jika ID cocok dengan userId yang terautentikasi', async () => {
       const payload = { username: 'newname' };
-      const expectedUpdatedResponse = { ...expectedResponse, username: 'newname' };
+      const expectedUpdatedResponse = {
+        ...expectedResponse,
+        username: 'newname',
+      };
 
       mockUsersService.updateUser.mockResolvedValue(expectedUpdatedResponse);
 
-      const result = await controller.update('user-uuid-1', payload, 'user-uuid-1');
+      const result = await controller.update(
+        'user-uuid-1',
+        payload,
+        'user-uuid-1',
+      );
 
       expect(result).toEqual(expectedUpdatedResponse);
-      expect(mockUsersService.updateUser).toHaveBeenCalledWith('user-uuid-1', payload);
+      expect(mockUsersService.updateUser).toHaveBeenCalledWith(
+        'user-uuid-1',
+        payload,
+      );
     });
 
     it('harus melempar ForbiddenException jika mencoba mengubah profil pengguna lain', async () => {
@@ -111,5 +121,3 @@ describe('UsersController', () => {
     });
   });
 });
-
-

@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { UsersRepository } from './users.repository';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserMapper, UserResponse } from './mapper/user.mapper';
@@ -6,7 +11,7 @@ import { User } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly usersRepository: UsersRepository) { }
+  constructor(private readonly usersRepository: UsersRepository) {}
 
   async findById(userId: string): Promise<UserResponse> {
     const user = await this.usersRepository.findById(userId);
@@ -32,7 +37,11 @@ export class UsersService {
     return this.usersRepository.findById(id);
   }
 
-  async createUser(data: { email: string; username: string; passwordHash: string }): Promise<UserResponse> {
+  async createUser(data: {
+    email: string;
+    username: string;
+    passwordHash: string;
+  }): Promise<UserResponse> {
     // Validasi keunikan email
     const existingEmail = await this.usersRepository.findByEmail(data.email);
     if (existingEmail) {
@@ -40,9 +49,13 @@ export class UsersService {
     }
 
     // Validasi keunikan username
-    const existingUsername = await this.usersRepository.findByUsername(data.username);
+    const existingUsername = await this.usersRepository.findByUsername(
+      data.username,
+    );
     if (existingUsername) {
-      throw new ConflictException(`Username '${data.username}' sudah digunakan`);
+      throw new ConflictException(
+        `Username '${data.username}' sudah digunakan`,
+      );
     }
 
     const user = await this.usersRepository.create({
@@ -54,13 +67,19 @@ export class UsersService {
     return UserMapper.toResponse(user);
   }
 
-  async updateRefreshTokenHash(userId: string, hash: string | null): Promise<void> {
+  async updateRefreshTokenHash(
+    userId: string,
+    hash: string | null,
+  ): Promise<void> {
     await this.usersRepository.update(userId, {
       refreshTokenHash: hash,
     });
   }
 
-  async updateUser(userId: string, payload: UpdateUserDto): Promise<UserResponse> {
+  async updateUser(
+    userId: string,
+    payload: UpdateUserDto,
+  ): Promise<UserResponse> {
     // 1. Pastikan user dengan ID tersebut ada di database
     const user = await this.usersRepository.findById(userId);
     if (!user) {
@@ -71,7 +90,9 @@ export class UsersService {
 
     // 2. Validasi & Aturan Email Immutable (Tidak boleh diubah)
     if (payload.email !== undefined && payload.email !== user.email) {
-      throw new BadRequestException('Email bersifat immutable dan tidak dapat diubah');
+      throw new BadRequestException(
+        'Email bersifat immutable dan tidak dapat diubah',
+      );
     }
 
     // 3. Validasi & Aturan Username (Optional but Unique)
@@ -82,9 +103,12 @@ export class UsersService {
       }
 
       if (trimmedUsername !== user.username) {
-        const existingUser = await this.usersRepository.findByUsername(trimmedUsername);
+        const existingUser =
+          await this.usersRepository.findByUsername(trimmedUsername);
         if (existingUser && existingUser.id !== userId) {
-          throw new ConflictException(`Username '${trimmedUsername}' sudah digunakan oleh pengguna lain`);
+          throw new ConflictException(
+            `Username '${trimmedUsername}' sudah digunakan oleh pengguna lain`,
+          );
         }
       }
       updateData.username = trimmedUsername;

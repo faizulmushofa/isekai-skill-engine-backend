@@ -18,7 +18,9 @@ describe('JwtAuthGuard', () => {
     verifyAccessToken: jest.fn(),
   };
 
-  const createMockContext = (authHeader: string | undefined): ExecutionContext => {
+  const createMockContext = (
+    authHeader: string | undefined,
+  ): ExecutionContext => {
     const request = {
       headers: {
         authorization: authHeader,
@@ -62,7 +64,9 @@ describe('JwtAuthGuard', () => {
     expect(result).toBe(true);
     const request = context.switchToHttp().getRequest();
     expect(request.user).toEqual({ id: 'user-uuid-1' });
-    expect(mockJwtService.verifyAccessToken).toHaveBeenCalledWith('valid_access_token');
+    expect(mockJwtService.verifyAccessToken).toHaveBeenCalledWith(
+      'valid_access_token',
+    );
   });
 
   it('harus melempar UnauthorizedException jika header Authorization tidak ada', () => {

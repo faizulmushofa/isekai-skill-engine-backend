@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, Inject, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  Inject,
+  BadRequestException,
+} from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -24,7 +29,9 @@ export class AuthService {
 
   async register(payload: RegisterDto): Promise<{ message: string }> {
     if (!payload || !payload.email || !payload.username || !payload.password) {
-      throw new BadRequestException('Email, username, dan password wajib diisi');
+      throw new BadRequestException(
+        'Email, username, dan password wajib diisi',
+      );
     }
     const passwordHash = await this.passwordService.hash(payload.password);
     await this.usersService.createUser({
@@ -35,7 +42,10 @@ export class AuthService {
     return { message: 'Register successful' };
   }
 
-  async login(payload: LoginDto, res: Response): Promise<{ message: string; accessToken: string }> {
+  async login(
+    payload: LoginDto,
+    res: Response,
+  ): Promise<{ message: string; accessToken: string }> {
     if (!payload || !payload.email || !payload.password) {
       throw new BadRequestException('Email dan password wajib diisi');
     }
@@ -44,7 +54,10 @@ export class AuthService {
       throw new UnauthorizedException('Kredensial login tidak valid');
     }
 
-    const isPasswordValid = await this.passwordService.compare(payload.password, user.passwordHash);
+    const isPasswordValid = await this.passwordService.compare(
+      payload.password,
+      user.passwordHash,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Kredensial login tidak valid');
     }
@@ -69,7 +82,9 @@ export class AuthService {
     // 1. Ekstrak refresh token via JwtService
     const refreshToken = this.jwtService.extractRefreshToken(req);
     if (!refreshToken) {
-      throw new UnauthorizedException('Sesi tidak ditemukan (Refresh token tidak ada di cookie)');
+      throw new UnauthorizedException(
+        'Sesi tidak ditemukan (Refresh token tidak ada di cookie)',
+      );
     }
 
     // 2. Verifikasi refresh token via JWT Infrastructure
@@ -84,16 +99,23 @@ export class AuthService {
     // 4. Bandingkan hash refresh token di DB
     const incomingHash = this.hashToken(refreshToken);
     if (!user.refreshTokenHash || user.refreshTokenHash !== incomingHash) {
-      throw new UnauthorizedException('Sesi tidak valid atau telah kedaluwarsa');
+      throw new UnauthorizedException(
+        'Sesi tidak valid atau telah kedaluwarsa',
+      );
     }
 
     // 5. Rotasi token (Buat token baru)
     const newAccessToken = this.jwtService.signAccessToken({ userId: user.id });
-    const newRefreshToken = this.jwtService.signRefreshToken({ userId: user.id });
+    const newRefreshToken = this.jwtService.signRefreshToken({
+      userId: user.id,
+    });
 
     // Update refresh token hash di DB
     const newRefreshTokenHash = this.hashToken(newRefreshToken);
-    await this.usersService.updateRefreshTokenHash(user.id, newRefreshTokenHash);
+    await this.usersService.updateRefreshTokenHash(
+      user.id,
+      newRefreshTokenHash,
+    );
 
     // Set refresh token baru di HttpOnly cookie via JwtService
     this.jwtService.setRefreshTokenCookie(res, newRefreshToken);

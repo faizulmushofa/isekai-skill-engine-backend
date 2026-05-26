@@ -9,7 +9,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from '../users.service';
 import { UsersRepository } from '../users.repository';
 import { UserResponse } from '../mapper/user.mapper';
-import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { User } from '@prisma/client';
 
 describe('UsersService', () => {
@@ -88,7 +92,9 @@ describe('UsersService', () => {
 
       expect(result).toEqual(expectedResponse);
       expect(result.hasOwnProperty('passwordHash')).toBe(false);
-      expect(mockUsersRepository.findByEmail).toHaveBeenCalledWith('test@example.com');
+      expect(mockUsersRepository.findByEmail).toHaveBeenCalledWith(
+        'test@example.com',
+      );
     });
 
     it('harus melempar NotFoundException jika Email tidak ditemukan', async () => {
@@ -155,9 +161,12 @@ describe('UsersService', () => {
     it('harus berhasil meng-update nama pengguna jika semua aturan validasi terpenuhi', async () => {
       mockUsersRepository.findById.mockResolvedValue(mockUser);
       mockUsersRepository.findByUsername.mockResolvedValue(null);
-      
+
       const updatedUser = { ...mockUser, username: 'newawesomeusername' };
-      const expectedUpdatedResponse = { ...expectedResponse, username: 'newawesomeusername' };
+      const expectedUpdatedResponse = {
+        ...expectedResponse,
+        username: 'newawesomeusername',
+      };
       mockUsersRepository.update.mockResolvedValue(updatedUser);
 
       const result = await service.updateUser('user-uuid-1', {
