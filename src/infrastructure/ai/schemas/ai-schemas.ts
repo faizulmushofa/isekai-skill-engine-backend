@@ -67,3 +67,31 @@ export const SkillInitSkillsExplanatorSchema = z.object({
   ),
 });
 
+export const SkillTaxonomySchema = z.object({
+  parentId: z.string().nullable(),
+  reason: z.string(),
+});
+
+export const QuizBatchEvaluationSchema = z.object({
+  sessionScore: z.number(),
+  questionEvaluations: z.array(
+    z.object({
+      questionId: z.string(),
+      scores: z.object({
+        theory: z.number(),
+        analysis: z.number(),
+        caseStudy: z.number(),
+      }),
+      finalScore: z.number(),
+    }),
+  ),
+  skillBreakdown: z.array(
+    z.object({
+      skillNode: z.string(),
+      evidenceScore: z.number(),
+    }),
+  ),
+});
+
+
+
