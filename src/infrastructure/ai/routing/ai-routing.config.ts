@@ -5,6 +5,9 @@ import {
   AssessmentGeneratorSchema,
   ProjectEvidenceSchema,
   BehavioralCareerAlignmentSchema,
+  SkillInitClassificationSchema,
+  SkillInitAdaptiveQuestionSchema,
+  SkillInitSkillsExplanatorSchema,
 } from '../schemas/ai-schemas';
 
 export interface AiFallbackRoute {
@@ -64,4 +67,29 @@ export const AI_TASK_ROUTES: Record<AiTaskType, AiTaskRoute> = {
     temperature: 0.5,
     maxRetries: 2,
   },
+  [AiTaskType.SKILL_INIT_CLASSIFICATION]: {
+    provider: 'gemini',
+    model: 'gemini-2.5-flash',
+    apiKeysEnv: ['GEMINI_API_KEY'],
+    responseSchema: SkillInitClassificationSchema,
+    temperature: 0.1, // Deterministic — strict classification
+    maxRetries: 2,
+  },
+  [AiTaskType.SKILL_INIT_ADAPTIVE_QUESTION]: {
+    provider: 'gemini',
+    model: 'gemini-2.5-flash',
+    apiKeysEnv: ['GEMINI_API_KEY'],
+    responseSchema: SkillInitAdaptiveQuestionSchema,
+    temperature: 0.5, // Mid — varied questions but structured output
+    maxRetries: 2,
+  },
+  [AiTaskType.SKILL_INIT_SKILLS_EXPLANATOR]: {
+    provider: 'gemini',
+    model: 'gemini-2.5-flash',
+    apiKeysEnv: ['GEMINI_API_KEY'],
+    responseSchema: SkillInitSkillsExplanatorSchema,
+    temperature: 0.3, // Low-mid — consistent skill descriptions
+    maxRetries: 2,
+  },
 };
+

@@ -1,12 +1,15 @@
 import { Controller, Post, Get, Param, Body, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 import { Project } from '@prisma/client';
 
-@Controller('projects')
+@ApiTags('Projects')
+@ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard)
+@Controller('projects')
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
