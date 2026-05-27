@@ -1,4 +1,14 @@
-import { Controller, Post, Get, Param, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Param,
+  Body,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JournalsService } from './journals.service';
 import { CreateJournalDto } from './dto/create-journal.dto';
@@ -13,12 +23,27 @@ import { Journal } from '@prisma/client';
 export class JournalsController {
   constructor(private readonly journalsService: JournalsService) {}
 
+  /**
+   * Manual Text Ingestion Endpoint
+   */
   @Post()
   async create(
     @CurrentUser() userId: string,
     @Body() dto: CreateJournalDto,
   ): Promise<Journal> {
     return this.journalsService.create(userId, dto);
+  }
+
+  /**
+   * File Upload Ingestion Endpoint (Supports PDF/TXT)
+   */
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFile(
+    @CurrentUser() userId: string,
+    @UploadedFile() file: any,
+  ): Promise<Journal> {
+    return this.journalsService.createFromFile(userId, file);
   }
 
   @Get()

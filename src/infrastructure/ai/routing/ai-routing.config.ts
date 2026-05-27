@@ -8,7 +8,11 @@ import {
   SkillInitClassificationSchema,
   SkillInitAdaptiveQuestionSchema,
   SkillInitSkillsExplanatorSchema,
+  SkillTaxonomySchema,
+  QuizBatchEvaluationSchema,
 } from '../schemas/ai-schemas';
+
+
 
 export interface AiFallbackRoute {
   provider: 'gemini' | 'groq';
@@ -133,5 +137,37 @@ export const AI_TASK_ROUTES: Record<AiTaskType, AiTaskRoute> = {
       },
     ],
   },
+  [AiTaskType.SKILL_TAXONOMY_RESOLVER]: {
+    provider: 'gemini',
+    model: 'gemini-2.5-flash',
+    apiKeysEnv: ['GEMINI_API_KEY'],
+    responseSchema: SkillTaxonomySchema,
+    temperature: 0.1, // Deterministic - keep it precise
+    maxRetries: 2,
+    fallbacks: [
+      {
+        provider: 'groq',
+        model: 'llama-3.1-8b-instant',
+        apiKeysEnv: ['GROQ_API_KEY'],
+      },
+    ],
+  },
+  [AiTaskType.QUIZ_BATCH_EVALUATION]: {
+    provider: 'gemini',
+    model: 'gemini-2.5-flash',
+    apiKeysEnv: ['GEMINI_API_KEY'],
+    responseSchema: QuizBatchEvaluationSchema,
+    temperature: 0.3, // Low temperature for factual grading
+    maxRetries: 2,
+    fallbacks: [
+      {
+        provider: 'groq',
+        model: 'llama-3.3-70b-versatile',
+        apiKeysEnv: ['GROQ_API_KEY'],
+      },
+    ],
+  },
 };
+
+
 

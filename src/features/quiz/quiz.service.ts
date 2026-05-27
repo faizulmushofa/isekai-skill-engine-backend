@@ -3,206 +3,353 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { SourceType } from '@prisma/client';
 import { QuizRepository } from './quiz.repository';
-import { QuizEngine } from './quiz.engine';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { AiService } from '../../infrastructure/ai/ai.service';
+import { SkillsService } from '../skills/skills.service';
+import { SkillEventsService } from '../skill-events/skill-events.service';
 import { QuizStateResponse } from './interfaces/quiz-state.interface';
+import { AssessmentGeneratorPrompt } from '../../infrastructure/ai/prompt/assessment-generator.prompt';
+import { QuizBatchEvaluationPrompt } from '../../infrastructure/ai/prompt/quiz-batch-evaluation.prompt';
+import { AdaptiveQuizSession } from './interfaces/quiz-state.interface';
 
 @Injectable()
 export class QuizService {
+  // In-Memory cache to track sequential adaptive exam sessions per user
+  private readonly sessions = new Map<string, AdaptiveQuizSession>();
+
+  // Story mode feedback templates
+  private readonly storyTemplates = [
+    'Menarik sekali ceritamu! Terus tingkatkan belajarmu ya!',
+    'Petualangan belajarmu hari ini luar biasa. Tetap konsisten!',
+    'Catatan belajarmu sudah disimpan di jurnal petualang!',
+  ];
+
   constructor(
+    private readonly prisma: PrismaService,
     private readonly quizRepository: QuizRepository,
-    private readonly quizEngine: QuizEngine,
+    private readonly aiService: AiService,
+    private readonly skillsService: SkillsService,
+    private readonly skillEventsService: SkillEventsService,
   ) {}
 
   /**
-   * Initiates the quiz request, prompting the user for a decision.
+   * Prompts the user to select their desired mode.
    */
-  startQuiz(userId: string, topic: string): Promise<QuizStateResponse> {
+  async startQuiz(userId: string, topic: string): Promise<QuizStateResponse> {
     if (!topic || !topic.trim()) {
-      return Promise.reject(
-        new BadRequestException('Topic tidak boleh kosong'),
-      );
+      throw new BadRequestException('Topic tidak boleh kosong');
     }
 
-    return Promise.resolve({
+    return {
       state: 'DECISION_REQUIRED',
-      message: 'Kamu mau test terkait topik ini untuk mendapatkan score?',
+      message: `Kamu mau:\n1. Cerita belajar saja\n2. Diuji (7 soal adaptif)\n\nBalas: 1 atau 2`,
       data: {
         topic: topic.trim(),
       },
-    });
+    };
   }
 
   /**
-   * Handles the user's YES/NO decision for the requested quiz topic.
+   * Handles mode selection.
+   * Mode 1 (Story): Stateless logging to SkillEvent with contribution = 0.
+   * Mode 2 (Scoring): Initializes 7-question adaptive exam.
    */
-  async handleDecision(
+  async selectMode(
     userId: string,
-    decision: 'YES' | 'NO',
+    mode: '1' | '2',
     topic: string,
   ): Promise<QuizStateResponse> {
     if (!topic || !topic.trim()) {
-      throw new BadRequestException(
-        'Topic wajib diisi untuk menentukan keputusan',
-      );
+      throw new BadRequestException('Topic wajib diisi.');
     }
 
-    if (decision === 'NO') {
+    if (mode === '1') {
+      // =========================
+      // STATE 1 — STORY MODE
+      // =========================
+      // 1. Resolve or create the abstract skillNode using the Graph Resolver
+      const skillIds = await this.skillsService.findOrCreateMany([
+        {
+          name: topic.trim(),
+          description: `Cerita belajar: ${topic.trim()}`,
+        },
+      ]);
+      const skillId = skillIds[0];
+
+      // Fetch current UserSkill progress or default to 0.0
+      const userSkill = await this.prisma.userSkill.findUnique({
+        where: { userId_skillId: { userId, skillId } },
+      });
+      const currentProgress = userSkill ? userSkill.progress : 0.0;
+
+      // 2. Direct log to SkillEvent bypassing Bayesian delta progression (zero impact)
+      await this.prisma.skillEvent.create({
+        data: {
+          userId,
+          skillId,
+          sourceType: SourceType.QUIZ,
+          sourceId: '00000000-0000-0000-0000-000000000000', // Static UUID for Story mode
+          rawScore: 0.0,
+          weightedScore: 0.0,
+          contribution: 0.0, // Strictly zero contribution
+          oldProgress: currentProgress,
+          newProgress: currentProgress,
+          reason: `Cerita belajar saja tentang "${topic.trim()}"`,
+          metadata: {
+            mode: 'STORY',
+            finalContribution: 0,
+          },
+        },
+      });
+
+      // 3. Return random template message
+      const randomMsg = this.storyTemplates[
+        Math.floor(Math.random() * this.storyTemplates.length)
+      ];
+
       return {
         state: 'EXIT',
-        message: 'Oke semangat belajar ya',
+        message: randomMsg,
       };
     }
 
-    if (decision !== 'YES') {
-      throw new BadRequestException(
-        'Keputusan tidak valid (harus YES atau NO)',
-      );
-    }
-
-    // Load or generate quiz
-    const quiz = await this.createQuizIfNotExists(topic);
-
-    // Start attempt
-    const attempt = await this.createAttempt(userId, quiz.id);
-
-    return {
-      state: 'QUIZ_STARTED',
-      message: 'Quiz successfully loaded and started',
-      data: {
-        attemptId: attempt.id,
-        quiz: {
-          id: quiz.id,
-          title: quiz.title,
-          description: quiz.description,
-          difficulty: quiz.difficulty,
-          questions: quiz.questions.map((q) => ({
-            id: q.id,
-            questionText: q.questionText,
-          })),
+    if (mode === '2') {
+      // =========================
+      // STATE 2 — SCORING MODE
+      // =========================
+      // STEP 1: Skill Resolution (Resolve abstract skillNode)
+      const skillIds = await this.skillsService.findOrCreateMany([
+        {
+          name: topic.trim(),
+          description: `Ujian kuis topik ${topic.trim()}`,
         },
-      },
-    };
-  }
+      ]);
+      const skillId = skillIds[0];
+      const skill = await this.prisma.skill.findUnique({ where: { id: skillId } });
+      if (!skill) {
+        throw new NotFoundException(`Skill dengan ID ${skillId} tidak ditemukan.`);
+      }
+      const skillNode = skill.name;
 
-  /**
-   * Loads a quiz by topic title from the database.
-   */
-  async loadQuiz(topic: string) {
-    return this.quizRepository.findQuizByTitle(topic);
-  }
+      // STEP 2: Question Retrieval (DB First)
+      let quiz = await this.quizRepository.findQuizByTitle(topic.trim());
+      if (!quiz) {
+        quiz = await this.quizRepository.createQuiz({
+          title: topic.trim(),
+          description: `Ujian adaptif topik ${topic.trim()}`,
+          difficulty: 'intermediate',
+          questions: [],
+        });
+      }
 
-  /**
-   * Helper that retrieves a quiz by topic or generates it if it doesn't exist.
-   */
-  async createQuizIfNotExists(topic: string) {
-    const existingQuiz = await this.loadQuiz(topic);
-    if (existingQuiz) {
-      return existingQuiz;
+      let quizQuestions = await this.prisma.question.findMany({
+        where: { quizId: quiz.id },
+      });
+
+      // STEP 3: Question Generation (AI Fallback reuse ASSESSMENT_GENERATOR)
+      while (quizQuestions.length < 7) {
+        const aiPrompt = AssessmentGeneratorPrompt.build({
+          skill: topic.trim(),
+          difficulty: 'intermediate',
+        });
+
+        const aiResponse = await this.aiService.generate<{
+          questions: Array<{
+            question: string;
+            type: 'ESSAY' | 'ANALYTICAL';
+            guideline: string;
+          }>;
+        }>(aiPrompt);
+
+        if (aiResponse && aiResponse.questions && aiResponse.questions.length > 0) {
+          const generatedQuestions = aiResponse.questions.map((q) => ({
+            questionText: q.question,
+            type: q.type || 'ESSAY',
+          }));
+
+          await this.quizRepository.addQuestionsToQuiz(quiz.id, generatedQuestions);
+        }
+
+        quizQuestions = await this.prisma.question.findMany({
+          where: { quizId: quiz.id },
+        });
+      }
+
+      // Pick exactly 7 unique questions for this exam session
+      const selectedQuestions = quizQuestions.slice(0, 7);
+
+      // Create new QuizAttempt to act as sessionId
+      const attempt = await this.quizRepository.createAttempt(userId, quiz.id);
+
+      // STEP 5: Session State Tracking (Save in-memory)
+      this.sessions.set(userId, {
+        attemptId: attempt.id,
+        topic: topic.trim(),
+        skillNode,
+        currentQuestionIndex: 0,
+        questionIds: selectedQuestions.map((q) => q.id),
+        answers: [],
+      });
+
+      // STEP 4: Sequential Delivery (Q1 first)
+      const q1 = selectedQuestions[0];
+      return {
+        state: 'QUESTION_DELIVERED',
+        message: 'Ujian adaptif diinisialisasi. Silakan jawab pertanyaan pertama.',
+        data: {
+          attemptId: attempt.id,
+          currentQuestionIndex: 0,
+          totalQuestions: 7,
+          question: {
+            id: q1.id,
+            questionText: q1.questionText,
+          },
+        },
+      };
     }
 
-    // Call placeholder generator
-    const generated = this.quizEngine.generateQuiz(topic);
-
-    // Save generated quiz and questions
-    return this.quizRepository.createQuiz(generated);
+    throw new BadRequestException('Pilihan mode tidak valid (Balas 1 atau 2).');
   }
 
   /**
-   * Helper to create a new QuizAttempt.
-   */
-  async createAttempt(userId: string, quizId: string) {
-    return this.quizRepository.createAttempt(userId, quizId);
-  }
-
-  /**
-   * Submits an answer for a specific question within a quiz attempt.
+   * Submit answer sequentially (Q1 -> user answer -> store -> next question -> ... -> Q7)
    */
   async submitAnswer(
-    attemptId: string,
-    questionId: string,
+    userId: string,
     answerText: string,
   ): Promise<QuizStateResponse> {
-    if (!attemptId) {
-      throw new BadRequestException('attemptId wajib diisi');
-    }
-    if (!questionId) {
-      throw new BadRequestException('questionId wajib diisi');
-    }
-    if (answerText === undefined || answerText === null) {
-      throw new BadRequestException('answerText wajib diisi');
-    }
-
-    const attempt = await this.quizRepository.findAttempt(attemptId);
-    if (!attempt) {
-      throw new NotFoundException(
-        `Quiz attempt dengan ID '${attemptId}' tidak ditemukan`,
+    const session = this.sessions.get(userId);
+    if (!session) {
+      throw new BadRequestException(
+        'Tidak ada sesi kuis aktif untuk Anda. Silakan mulai kuis baru.',
       );
     }
 
-    const question = await this.quizRepository.findQuestion(questionId);
-    if (!question || question.quizId !== attempt.quizId) {
-      throw new NotFoundException(
-        `Question dengan ID '${questionId}' tidak ditemukan di quiz ini`,
-      );
+    if (answerText === undefined || answerText === null || !answerText.trim()) {
+      throw new BadRequestException('Jawaban tidak boleh kosong.');
     }
 
-    // Evaluate answer correctness using isolated QuizEngine rules
-    const isCorrect = this.quizEngine.evaluateAnswer(answerText, question.type);
+    const currentQuestionId = session.questionIds[session.currentQuestionIndex];
 
-    // Save the answer
+    // 1. Save answer sequentially to database
     await this.quizRepository.saveAnswer({
-      attemptId,
-      questionId,
+      attemptId: session.attemptId,
+      questionId: currentQuestionId,
       answerText: answerText.trim(),
-      isCorrect,
     });
 
-    const answers = await this.quizRepository.findAttemptAnswers(attemptId);
-    const score = this.quizEngine.calculateScore(answers);
+    // 2. Log in session
+    session.answers.push({
+      questionId: currentQuestionId,
+      answerText: answerText.trim(),
+    });
 
-    return {
-      state: 'ANSWER_SUBMITTED',
-      message: 'Answer successfully submitted',
-      data: {
-        isCorrect,
-        correct: isCorrect,
-        score,
-      },
-    };
-  }
+    // Advance question index
+    session.currentQuestionIndex++;
 
-  /**
-   * Calculates the final quiz score, updates the attempt, and returns results.
-   */
-  async finishQuiz(attemptId: string): Promise<QuizStateResponse> {
-    if (!attemptId) {
-      throw new BadRequestException('attemptId wajib diisi');
-    }
+    // 3. STEP 6: After Question 7 Completed ➔ Trigger Batch Evaluation
+    if (session.currentQuestionIndex === 7) {
+      const qaPairs: Array<{ questionId: string; questionText: string; answerText: string }> = [];
+      for (const ans of session.answers) {
+        const q = await this.quizRepository.findQuestion(ans.questionId);
+        if (!q) {
+          throw new NotFoundException(`Soal dengan ID ${ans.questionId} tidak ditemukan.`);
+        }
+        qaPairs.push({
+          questionId: ans.questionId,
+          questionText: q.questionText,
+          answerText: ans.answerText,
+        });
+      }
 
-    const attempt = await this.quizRepository.findAttempt(attemptId);
-    if (!attempt) {
-      throw new NotFoundException(
-        `Quiz attempt dengan ID '${attemptId}' tidak ditemukan`,
+      // Invoke DEDICATED MODEL & PROMPT for grading the 7 answers together
+      const evalPrompt = QuizBatchEvaluationPrompt.build({
+        skillNode: session.skillNode,
+        topic: session.topic,
+        qaPairs,
+      });
+
+      const aiResult = await this.aiService.generate<{
+        sessionScore: number;
+        questionEvaluations: Array<{
+          questionId: string;
+          scores: { theory: number; analysis: number; caseStudy: number };
+          finalScore: number;
+        }>;
+        skillBreakdown: Array<{ skillNode: string; evidenceScore: number }>;
+      }>(evalPrompt);
+
+      // Save evaluations inside database
+      for (const qEval of aiResult.questionEvaluations) {
+        const isCorrect = qEval.finalScore >= 50.0;
+        await this.quizRepository.updateAnswerEvaluation(
+          session.attemptId,
+          qEval.questionId,
+          qEval.finalScore,
+          isCorrect,
+        );
+      }
+
+      await this.quizRepository.updateAttemptScore(
+        session.attemptId,
+        aiResult.sessionScore,
       );
+
+      // STEP 7 & 8: Skill Aggregation & Bayesian Update
+      for (const breakdown of aiResult.skillBreakdown) {
+        const skillIds = await this.skillsService.findOrCreateMany([
+          {
+            name: breakdown.skillNode,
+            description: `Evaluasi ujian topik ${session.topic}`,
+          },
+        ]);
+        const skillId = skillIds[0];
+
+        // Trigger recursive Bayesian propagation up the skill tree ancestors
+        await this.skillEventsService.recordEvent({
+          userId,
+          skillId,
+          sourceType: SourceType.QUIZ,
+          sourceId: session.attemptId,
+          rawScore: breakdown.evidenceScore,
+          reason: `Evaluasi ujian topik ${session.topic}`,
+        });
+      }
+
+      // Cleanup sequential exam session
+      this.sessions.delete(userId);
+
+      return {
+        state: 'QUIZ_FINISHED',
+        message: 'Kuis selesai. Seluruh jawaban Anda telah dievaluasi serentak menggunakan AI.',
+        data: {
+          attemptId: session.attemptId,
+          score: aiResult.sessionScore,
+          skillBreakdown: aiResult.skillBreakdown,
+        },
+      };
     }
 
-    const answers = await this.quizRepository.findAttemptAnswers(attemptId);
-
-    // Compute total score using QuizEngine scoring rules (+1 for correct, 0 for incorrect)
-    const score = this.quizEngine.calculateScore(answers);
-
-    // Update attempt record
-    await this.quizRepository.updateAttemptScore(attemptId, score);
+    // 4. Deliver Next Question
+    const nextQuestionId = session.questionIds[session.currentQuestionIndex];
+    const nextQuestion = await this.quizRepository.findQuestion(nextQuestionId);
+    if (!nextQuestion) {
+      throw new NotFoundException(`Soal dengan ID ${nextQuestionId} tidak ditemukan.`);
+    }
 
     return {
-      state: 'QUIZ_FINISHED',
-      message: 'Quiz completed',
+      state: 'QUESTION_DELIVERED',
+      message: `Jawaban disimpan. Menyajikan soal ${session.currentQuestionIndex + 1} dari 7.`,
       data: {
-        score,
-        totalQuestions: attempt.quiz.questions.length,
-        totalScore: score,
-        maxScore: attempt.quiz.questions.length,
+        attemptId: session.attemptId,
+        currentQuestionIndex: session.currentQuestionIndex,
+        totalQuestions: 7,
+        question: {
+          id: nextQuestion.id,
+          questionText: nextQuestion.questionText,
+        },
       },
     };
   }

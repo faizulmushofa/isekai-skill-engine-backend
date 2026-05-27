@@ -10,6 +10,13 @@ export class SkillEngineCalibration {
    */
   readonly FORMULA_VERSION = 'v1.0';
 
+  /**
+   * Exponential decay rate for recursive score propagation up the hierarchy tree.
+   * A child progress increase of Delta propagates to ancestors by: Delta * decay^distance
+   */
+  readonly PROPAGATION_DECAY = 0.40;
+
+
   private readonly params: Record<SourceType, CalibrationParams> = {
     [SourceType.JOURNAL]: {
       alpha: 0.10, // Moderate learning speed for persistent reflection

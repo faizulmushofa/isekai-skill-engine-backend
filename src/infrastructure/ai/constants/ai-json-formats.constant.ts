@@ -68,6 +68,32 @@ export class AiJsonFormats {
   ]
 }`;
 
+  public static readonly QUIZ_BATCH_EVALUATION = `{
+  "sessionScore": <number_0_to_100>,
+  "questionEvaluations": [
+    {
+      "questionId": "<uuid>",
+      "scores": {
+        "theory": <number_0_to_100>,
+        "analysis": <number_0_to_100>,
+        "caseStudy": <number_0_to_100>
+      },
+      "finalScore": <number_0_to_100>
+    }
+  ],
+  "skillBreakdown": [
+    {
+      "skillNode": "<skill_node_name>",
+      "evidenceScore": <number_0_to_100>
+    }
+  ]
+}`;
+
+  public static readonly SKILL_TAXONOMY = `{
+  "parentId": "<selected_parent_uuid_or_null>",
+  "reason": "<reasoning_text_explaining_why_it_belongs_there_or_why_it_is_root>"
+}`;
+
   /**
    * Helper method to attach the instruction prefix to the target format.
    */

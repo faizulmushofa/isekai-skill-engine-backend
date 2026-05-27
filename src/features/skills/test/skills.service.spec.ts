@@ -6,6 +6,7 @@ jest.mock('@prisma/client', () => ({
 import { Test, TestingModule } from '@nestjs/testing';
 import { SkillsService, SkillInput } from '../skills.service';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
+import { SkillTaxonomyService } from '../services/skill-taxonomy.service';
 
 describe('SkillsService', () => {
   let service: SkillsService;
@@ -17,11 +18,16 @@ describe('SkillsService', () => {
     },
   };
 
+  const mockTaxonomyService = {
+    resolveParentId: jest.fn().mockResolvedValue(null),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SkillsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: SkillTaxonomyService, useValue: mockTaxonomyService },
       ],
     }).compile();
 

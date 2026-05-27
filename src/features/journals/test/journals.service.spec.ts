@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JournalsService } from '../journals.service';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
+import { ExtractionService } from '../../../infrastructure/extraction/extraction.service';
+import { AiService } from '../../../infrastructure/ai/ai.service';
+import { SkillsService } from '../../skills/skills.service';
+import { SkillEventsService } from '../../skill-events/skill-events.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 describe('JournalsService', () => {
@@ -13,6 +17,22 @@ describe('JournalsService', () => {
       findMany: jest.fn(),
       findUnique: jest.fn(),
     },
+  };
+
+  const mockExtractionService = {
+    extractText: jest.fn(),
+  };
+
+  const mockAiService = {
+    generate: jest.fn(),
+  };
+
+  const mockSkillsService = {
+    findOrCreateMany: jest.fn(),
+  };
+
+  const mockSkillEventsService = {
+    recordEvent: jest.fn(),
   };
 
   const mockJournal = {
@@ -32,6 +52,22 @@ describe('JournalsService', () => {
           provide: PrismaService,
           useValue: mockPrismaService,
         },
+        {
+          provide: ExtractionService,
+          useValue: mockExtractionService,
+        },
+        {
+          provide: AiService,
+          useValue: mockAiService,
+        },
+        {
+          provide: SkillsService,
+          useValue: mockSkillsService,
+        },
+        {
+          provide: SkillEventsService,
+          useValue: mockSkillEventsService,
+        },
       ],
     }).compile();
 
@@ -48,6 +84,10 @@ describe('JournalsService', () => {
   describe('create', () => {
     it('should successfully save a journal with correct fields', async () => {
       mockPrismaService.journal.create.mockResolvedValue(mockJournal);
+      mockSkillsService.findOrCreateMany.mockResolvedValue(['skill-uuid-1']);
+      mockAiService.generate.mockResolvedValue({
+        evidences: [{ signal: 'Backend Security', confidence: 0.95 }],
+      });
 
       const dto = {
         title: 'My First Journey',

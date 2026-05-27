@@ -5,6 +5,9 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 export class QuizRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Find a quiz by title, including all associated questions.
+   */
   async findQuizByTitle(title: string) {
     if (!title) return null;
     return this.prisma.quiz.findFirst({
@@ -20,6 +23,9 @@ export class QuizRepository {
     });
   }
 
+  /**
+   * Create a new quiz with an initial set of questions.
+   */
   async createQuiz(data: {
     title: string;
     description: string;
@@ -44,6 +50,29 @@ export class QuizRepository {
     });
   }
 
+  /**
+   * Dynamically appends new questions to an existing quiz in the database.
+   */
+  async addQuestionsToQuiz(
+    quizId: string,
+    questions: { questionText: string; type: string }[],
+  ) {
+    await this.prisma.question.createMany({
+      data: questions.map((q) => ({
+        quizId,
+        questionText: q.questionText,
+        type: q.type,
+      })),
+    });
+
+    return this.prisma.question.findMany({
+      where: { quizId },
+    });
+  }
+
+  /**
+   * Create a new QuizAttempt record.
+   */
   async createAttempt(userId: string, quizId: string) {
     return this.prisma.quizAttempt.create({
       data: {
@@ -53,6 +82,9 @@ export class QuizRepository {
     });
   }
 
+  /**
+   * Find a quiz attempt, including associated quiz, questions, and answers.
+   */
   async findAttempt(attemptId: string) {
     if (!attemptId) return null;
     return this.prisma.quizAttempt.findUnique({
@@ -68,6 +100,9 @@ export class QuizRepository {
     });
   }
 
+  /**
+   * Find a specific question by ID.
+   */
   async findQuestion(questionId: string) {
     if (!questionId) return null;
     return this.prisma.question.findUnique({
@@ -75,13 +110,16 @@ export class QuizRepository {
     });
   }
 
+  /**
+   * Save a user's answer during sequential execution.
+   */
   async saveAnswer(data: {
     attemptId: string;
     questionId: string;
     answerText: string;
-    isCorrect: boolean;
+    isCorrect?: boolean;
+    score?: number;
   }) {
-    // Check if answer already exists to prevent duplicate submissions
     const existing = await this.prisma.quizAnswer.findFirst({
       where: {
         quizAttemptId: data.attemptId,
@@ -94,8 +132,8 @@ export class QuizRepository {
         where: { id: existing.id },
         data: {
           answerText: data.answerText,
-          isCorrect: data.isCorrect,
-          score: data.isCorrect ? 1 : 0,
+          isCorrect: data.isCorrect ?? null,
+          score: data.score ?? null,
         },
       });
     }
@@ -105,12 +143,42 @@ export class QuizRepository {
         quizAttemptId: data.attemptId,
         questionId: data.questionId,
         answerText: data.answerText,
-        isCorrect: data.isCorrect,
-        score: data.isCorrect ? 1 : 0,
+        isCorrect: data.isCorrect ?? null,
+        score: data.score ?? null,
       },
     });
   }
 
+  /**
+   * Update the final score and correctness for a specific answer after batch evaluation.
+   */
+  async updateAnswerEvaluation(
+    attemptId: string,
+    questionId: string,
+    score: number,
+    isCorrect: boolean,
+  ) {
+    const existing = await this.prisma.quizAnswer.findFirst({
+      where: {
+        quizAttemptId: attemptId,
+        questionId,
+      },
+    });
+
+    if (existing) {
+      return this.prisma.quizAnswer.update({
+        where: { id: existing.id },
+        data: {
+          score,
+          isCorrect,
+        },
+      });
+    }
+  }
+
+  /**
+   * Find all quiz answers submitted under a specific attempt.
+   */
   async findAttemptAnswers(attemptId: string) {
     return this.prisma.quizAnswer.findMany({
       where: {
@@ -119,6 +187,9 @@ export class QuizRepository {
     });
   }
 
+  /**
+   * Update the final cumulative score for a quiz attempt.
+   */
   async updateAttemptScore(attemptId: string, score: number) {
     return this.prisma.quizAttempt.update({
       where: { id: attemptId },

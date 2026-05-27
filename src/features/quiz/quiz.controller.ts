@@ -1,8 +1,8 @@
-import { Controller, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { QuizService } from './quiz.service';
 import { StartQuizDto } from './dto/start-quiz.dto';
-import { DecisionDto } from './dto/decision.dto';
+import { SelectModeDto } from './dto/select-mode.dto';
 import { AnswerQuizDto } from './dto/answer-quiz.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
@@ -23,27 +23,19 @@ export class QuizController {
     return this.quizService.startQuiz(userId, dto.topic);
   }
 
-  @Post('decision')
-  async handleDecision(
+  @Post('mode')
+  async selectMode(
     @CurrentUser() userId: string,
-    @Body() dto: DecisionDto,
+    @Body() dto: SelectModeDto,
   ): Promise<QuizStateResponse> {
-    return this.quizService.handleDecision(userId, dto.decision, dto.topic);
+    return this.quizService.selectMode(userId, dto.mode, dto.topic);
   }
 
   @Post('answer')
-  async submitAnswer(@Body() dto: AnswerQuizDto): Promise<QuizStateResponse> {
-    return this.quizService.submitAnswer(
-      dto.attemptId,
-      dto.questionId,
-      dto.answerText,
-    );
-  }
-
-  @Post('finish/:attemptId')
-  async finishQuiz(
-    @Param('attemptId') attemptId: string,
+  async submitAnswer(
+    @CurrentUser() userId: string,
+    @Body() dto: AnswerQuizDto,
   ): Promise<QuizStateResponse> {
-    return this.quizService.finishQuiz(attemptId);
+    return this.quizService.submitAnswer(userId, dto.answerText);
   }
 }
