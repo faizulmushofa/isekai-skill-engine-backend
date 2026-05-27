@@ -9,6 +9,7 @@ import { JournalsModule } from './features/journals/journals.module';
 import { ProjectsModule } from './features/projects/projects.module';
 import { QuizModule } from './features/quiz/quiz.module';
 import { SkillAggregatorModule } from './features/skill-aggregator/skill-aggregator.module';
+import { SkillInitModule } from './features/skill-init/skill-init.module';
 import { ConfigModule } from './infrastructure/config/config.module';
 import { AiModule } from './infrastructure/ai/ai.module';
 import { ExtractionModule } from './infrastructure/extraction/extraction.module';
@@ -30,6 +31,7 @@ import { GitProcessingModule } from './infrastructure/git-processing/git-process
     ProjectsModule,
     QuizModule,
     SkillAggregatorModule,
+    SkillInitModule,
   ],
   controllers: [],
   providers: [],
