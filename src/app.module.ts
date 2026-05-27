@@ -12,12 +12,14 @@ import { SkillAggregatorModule } from './features/skill-aggregator/skill-aggrega
 import { ConfigModule } from './infrastructure/config/config.module';
 import { AiModule } from './infrastructure/ai/ai.module';
 import { ExtractionModule } from './infrastructure/extraction/extraction.module';
+import { GitProcessingModule } from './infrastructure/git-processing/git-processing.module';
 
 @Module({
   imports: [
     ConfigModule,
     AiModule,
     ExtractionModule,
+    GitProcessingModule,
     PrismaModule,
     SecurityModule,
     AuthModule,
