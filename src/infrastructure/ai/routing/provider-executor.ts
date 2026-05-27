@@ -2,6 +2,8 @@ import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common
 import { ConfigService } from '../../config/config.service';
 import { AiProvider } from '../interfaces/ai-provider.interface';
 import { GeminiProvider } from '../providers/gemini.provider';
+import { GroqProvider } from '../providers/groq.provider';
+import { PromptGuardService } from '../guard/prompt-guard.service';
 import { AiTaskRoute } from './ai-routing.config';
 
 @Injectable()
@@ -11,6 +13,8 @@ export class ProviderExecutor {
   constructor(
     private readonly configService: ConfigService,
     private readonly geminiProvider: GeminiProvider,
+    private readonly groqProvider: GroqProvider,
+    private readonly promptGuard: PromptGuardService,
   ) {}
 
   /**
@@ -21,6 +25,10 @@ export class ProviderExecutor {
     systemPrompt: string,
     userPrompt: string,
   ): Promise<string> {
+    
+    // 0. Anti-jailbreak: screen user input with Llama Guard
+    await this.promptGuard.enforceOrThrow(userPrompt);
+
     try {
       // 1. Attempt main route execution
       return await this.executeWithRetryAndKeyRotation(route, systemPrompt, userPrompt);
@@ -105,19 +113,24 @@ export class ProviderExecutor {
     );
   }
 
-  private resolveProvider(providerName: 'gemini'): AiProvider {
+  private resolveProvider(providerName: 'gemini' | 'groq'): AiProvider {
     switch (providerName) {
       case 'gemini':
         return this.geminiProvider;
+      case 'groq':
+        return this.groqProvider;
       default:
         throw new InternalServerErrorException(`AI Provider '${providerName}' tidak dikenali.`);
     }
   }
 
-  private getDefaultKeysForProvider(provider: 'gemini'): string[] {
+  private getDefaultKeysForProvider(provider: 'gemini' | 'groq'): string[] {
     switch (provider) {
       case 'gemini':
         return ['GEMINI_API_KEY'];
+      case 'groq':
+        return ['GROQ_API_KEY'];
     }
   }
 }
+

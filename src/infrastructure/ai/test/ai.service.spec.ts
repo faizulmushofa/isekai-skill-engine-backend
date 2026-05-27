@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AiService } from '../ai.service';
 import { ConfigService } from '../../config/config.service';
 import { GeminiProvider } from '../providers/gemini.provider';
+import { GroqProvider } from '../providers/groq.provider';
+import { PromptGuardService } from '../guard/prompt-guard.service';
 import { StructuredResponseParser } from '../parser/structured-response-parser';
 import { ProviderExecutor } from '../routing/provider-executor';
 import { AiTaskRouter } from '../routing/ai-task-router';
@@ -15,6 +17,8 @@ describe('AiService (Arsitektur Revisi Tangguh - Gemini Only)', () => {
   let service: AiService;
   let configService: ConfigService;
   let mockGeminiProvider: jest.Mocked<GeminiProvider>;
+  let mockGroqProvider: jest.Mocked<GroqProvider>;
+  let mockPromptGuardService: jest.Mocked<PromptGuardService>;
 
   beforeEach(async () => {
     mockGeminiProvider = {
@@ -33,6 +37,27 @@ describe('AiService (Arsitektur Revisi Tangguh - Gemini Only)', () => {
       ),
     } as unknown as jest.Mocked<GeminiProvider>;
 
+    mockGroqProvider = {
+      generate: jest.fn().mockResolvedValue(
+        JSON.stringify({
+          skills: [
+            {
+              name: 'NestJS',
+              confidence: 0.91,
+              complexity: 'intermediate',
+              evidence: ['DI'],
+              reason: 'Good explanation',
+            },
+          ],
+        }),
+      ),
+    } as unknown as jest.Mocked<GroqProvider>;
+
+    mockPromptGuardService = {
+      classify: jest.fn().mockResolvedValue({ isSafe: true, rawResponse: 'benign' }),
+      enforceOrThrow: jest.fn().mockResolvedValue(undefined),
+    } as unknown as jest.Mocked<PromptGuardService>;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiService,
@@ -45,11 +70,14 @@ describe('AiService (Arsitektur Revisi Tangguh - Gemini Only)', () => {
             get: jest.fn().mockImplementation((key: string) => {
               if (key === 'GEMINI_API_KEY') return 'test-gemini-key';
               if (key === 'GEMINI_API_KEY_BACKUP') return 'backup-gemini-key';
+              if (key === 'GROQ_API_KEY') return 'test-groq-key';
               return undefined;
             }),
           },
         },
         { provide: GeminiProvider, useValue: mockGeminiProvider },
+        { provide: GroqProvider, useValue: mockGroqProvider },
+        { provide: PromptGuardService, useValue: mockPromptGuardService },
       ],
     }).compile();
 
@@ -76,7 +104,7 @@ describe('AiService (Arsitektur Revisi Tangguh - Gemini Only)', () => {
     });
 
     it('should strip markdown formatting and validate correctly', async () => {
-      mockGeminiProvider.generate.mockResolvedValueOnce(
+      mockGroqProvider.generate.mockResolvedValueOnce(
         '```json\n{\n  "skills": [\n    {\n      "name": "TypeScript",\n      "confidence": 0.88,\n      "complexity": "beginner",\n      "evidence": ["interfaces"],\n      "reason": "OK"\n    }\n  ]\n}\n```',
       );
 
@@ -91,7 +119,7 @@ describe('AiService (Arsitektur Revisi Tangguh - Gemini Only)', () => {
 
     it('should throw an error if the response format does not match the schema', async () => {
       // Missing required property "evidence" and wrong complexity enum
-      mockGeminiProvider.generate.mockResolvedValueOnce(
+      mockGroqProvider.generate.mockResolvedValueOnce(
         JSON.stringify({
           skills: [
             {
@@ -117,20 +145,18 @@ describe('AiService (Arsitektur Revisi Tangguh - Gemini Only)', () => {
 
   describe('Key Rotation (apiKeysEnv support)', () => {
     it('should try backup API keys if the primary key is not defined', async () => {
+      // Primary GROQ is undefined, forcing failover to Gemini fallback.
+      // For Gemini fallback, GEMINI_API_KEY is undefined, forcing rotation to GEMINI_API_KEY_BACKUP.
       jest.spyOn(configService, 'get').mockImplementation((key: string) => {
-        if (key === 'GEMINI_API_KEY') return undefined; // Primary undefined
+        if (key === 'GROQ_API_KEY') return undefined;
+        if (key === 'GEMINI_API_KEY') return undefined;
         if (key === 'GEMINI_API_KEY_BACKUP') return 'backup-active-key';
         return undefined;
       });
 
-      const request = LearningEvidencePrompt.build({
-        extractedText: 'Testing key rotation',
-        sourceType: 'TEXT',
-      });
-
-      // Triggers fallback route which has apiKeysEnv: ['GEMINI_API_KEY_BACKUP', 'GEMINI_API_KEY']
+      mockGeminiProvider.generate.mockReset();
       mockGeminiProvider.generate
-        .mockRejectedValueOnce(new Error('First key fail')) // Primary fail
+        .mockRejectedValueOnce(new Error('First key fail'))
         .mockResolvedValueOnce(
           JSON.stringify({
             skills: [
@@ -144,6 +170,11 @@ describe('AiService (Arsitektur Revisi Tangguh - Gemini Only)', () => {
             ],
           }),
         );
+
+      const request = LearningEvidencePrompt.build({
+        extractedText: 'Testing key rotation',
+        sourceType: 'TEXT',
+      });
 
       const response = await service.generate<any>(request);
       expect(response.skills[0].name).toBe('KeyRotation');
@@ -159,12 +190,15 @@ describe('AiService (Arsitektur Revisi Tangguh - Gemini Only)', () => {
 
   describe('Provider Fallback & Failover Policies', () => {
     it('should failover to the configured fallback route if the primary fails completely', async () => {
-      // Primary gemini-2.5-flash fails (tried twice because maxRetries is 2)
-      mockGeminiProvider.generate
-        .mockRejectedValueOnce(new Error('Flash model rate limited - attempt 1'))
-        .mockRejectedValueOnce(new Error('Flash model rate limited - attempt 2'));
+      mockGroqProvider.generate.mockReset();
+      mockGeminiProvider.generate.mockReset();
 
-      // Fallback model gemini-1.5-flash succeeds
+      // Primary groq fails (tried twice because maxRetries is 2)
+      mockGroqProvider.generate
+        .mockRejectedValueOnce(new Error('Groq model rate limited - attempt 1'))
+        .mockRejectedValueOnce(new Error('Groq model rate limited - attempt 2'));
+
+      // Fallback model gemini-2.5-flash succeeds
       mockGeminiProvider.generate.mockResolvedValueOnce(
         JSON.stringify({
           skills: [
@@ -190,7 +224,7 @@ describe('AiService (Arsitektur Revisi Tangguh - Gemini Only)', () => {
       expect(mockGeminiProvider.generate).toHaveBeenLastCalledWith(
         expect.any(String),
         expect.any(String),
-        expect.objectContaining({ model: 'gemini-1.5-flash' }),
+        expect.objectContaining({ model: 'gemini-2.5-flash' }),
       );
     });
   });
@@ -203,7 +237,7 @@ describe('AiService (Arsitektur Revisi Tangguh - Gemini Only)', () => {
       });
 
       expect(request.taskType).toBe(AiTaskType.ASSESSMENT_GENERATOR);
-      expect(request.systemPrompt).toContain('World-Class Assessment Generator');
+      expect(request.systemPrompt).toContain('Anda adalah Pembuat Soal ISEKAI SKILL ENGINE.');
       expect(request.userPrompt).toContain('Target Skill: NestJS');
       
       // Technical parameters should be completely absent from prompt template response!

@@ -5,13 +5,17 @@ import cookieParser from 'cookie-parser';
 import { Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { LoggingInterceptor } from './shared/interceptors/logging.interceptor';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.use(cookieParser());
   app.useGlobalInterceptors(new LoggingInterceptor());
+  app.useStaticAssets(join(process.cwd(), 'src', 'frontend'));
+
 
   const config = new DocumentBuilder()
     .setTitle('Isekai Skill Engine API')

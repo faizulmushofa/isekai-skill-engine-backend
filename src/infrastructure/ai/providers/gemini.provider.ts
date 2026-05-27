@@ -19,10 +19,8 @@ export class GeminiProvider extends AiProvider {
   ): Promise<string> {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`;
 
-    // Append JSON validation schema guidelines to guarantee layout compliance
-    const finalSystemPrompt = config.responseSchema
-      ? `${systemPrompt}\n\nYou must return a valid JSON object strictly matching this schema:\n${JSON.stringify(config.responseSchema, null, 2)}`
-      : systemPrompt;
+    // The exact JSON structure is now baked directly into the systemPrompt.
+    const finalSystemPrompt = systemPrompt;
 
     const response = await fetch(url, {
       method: 'POST',

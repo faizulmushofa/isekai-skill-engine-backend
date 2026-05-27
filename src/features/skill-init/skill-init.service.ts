@@ -46,6 +46,9 @@ type CareerAlignmentResult = z.infer<typeof BehavioralCareerAlignmentSchema>;
  */
 @Injectable()
 export class SkillInitService {
+  // Hard cap: maximum number of discovery questions allowed
+  private readonly MAX_DISCOVERY_QUESTIONS = 10;
+
   // In-memory session store keyed by userId.
   // Replace with Redis for production multi-instance support.
   private readonly sessions = new Map<string, SkillInitSession>();
@@ -148,15 +151,19 @@ export class SkillInitService {
     // Record answer
     session.discoveryAnswers.push(answerText);
 
+    const totalAnswers = session.discoveryAnswers.length;
+    const isAtLimit = totalAnswers >= this.MAX_DISCOVERY_QUESTIONS;
+
     // AI: Get next question or conclude discovery
     const result = await this.aiService.generate<AdaptiveQuestionResult>(
       SkillInitAdaptiveQuestionPrompt.build({
         previousAnswers: session.discoveryAnswers,
-        totalAnswers: session.discoveryAnswers.length,
+        totalAnswers,
       }),
     );
 
-    if (result.isDiscoveryComplete) {
+    // Force completion if hard cap reached OR AI says complete
+    if (result.isDiscoveryComplete || isAtLimit) {
       // Discovery complete — extract traits and generate career options
       session.discoveredTraits = result.discoveredTraits ?? [];
 
@@ -180,7 +187,7 @@ export class SkillInitService {
     this.sessions.set(userId, session);
     return {
       step: 'DISCOVERY',
-      message: `Pertanyaan ${session.discoveryAnswers.length + 1}:`,
+      message: `Pertanyaan ${totalAnswers + 1}/${this.MAX_DISCOVERY_QUESTIONS}:`,
       question: result.question,
       dimension: result.dimension,
     };
