@@ -4,14 +4,15 @@ import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
 import { Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { LoggingInterceptor } from './shared/interceptors/logging.interceptor';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
   app.use(cookieParser());
+  app.useGlobalInterceptors(new LoggingInterceptor());
 
-  // ── Swagger / OpenAPI ──────────────────────────────────────────────────
   const config = new DocumentBuilder()
     .setTitle('Isekai Skill Engine API')
     .setDescription(
