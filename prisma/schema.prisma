@@ -211,15 +211,20 @@ enum SourceType {
 }
 
 model SkillEvent {
-  id           String     @id @default(uuid()) @db.Uuid
-  userId       String     @map("user_id") @db.Uuid
-  skillId      String     @map("skill_id") @db.Uuid
-  sourceType   SourceType @map("source_type")
-  sourceId     String     @map("source_id") @db.Uuid
-  contribution Int
-  reason       String?    @db.Text
-  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamp
-  updatedAt    DateTime?  @map("updated_at") @db.Timestamp
+  id            String     @id @default(uuid()) @db.Uuid
+  userId        String     @map("user_id") @db.Uuid
+  skillId       String     @map("skill_id") @db.Uuid
+  sourceType    SourceType @map("source_type")
+  sourceId      String     @map("source_id") @db.Uuid
+  rawScore      Float      @map("raw_score")
+  weightedScore Float      @map("weighted_score")
+  contribution  Float      
+  oldProgress   Float      @map("old_progress")
+  newProgress   Float      @map("new_progress")
+  reason        String?    @db.Text
+  metadata      Json?      @map("metadata")
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamp
+  updatedAt     DateTime?  @map("updated_at") @db.Timestamp
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
@@ -234,7 +239,7 @@ model UserSkill {
   id        String    @id @default(uuid()) @db.Uuid
   userId    String    @map("user_id") @db.Uuid
   skillId   String    @map("skill_id") @db.Uuid
-  progress  Int       @default(0)
+  progress  Float     @default(0.0)
   updatedAt DateTime? @map("updated_at") @db.Timestamp
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -243,3 +248,4 @@ model UserSkill {
   @@unique([userId, skillId])
   @@map("user_skills")
 }
+

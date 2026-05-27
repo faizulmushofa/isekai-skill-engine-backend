@@ -47,14 +47,14 @@ export const BehavioralCareerAlignmentSchema = z.object({
 
 export const SkillInitClassificationSchema = z.object({
   intent: z.enum(['DIRECT_GOAL', 'VAGUE_GOAL', 'EMPTY']),
-  careerName: z.string().optional(), // Present only when intent = DIRECT_GOAL
+  careerName: z.string().nullish(), // Present only when intent = DIRECT_GOAL
 });
 
 export const SkillInitAdaptiveQuestionSchema = z.object({
   question: z.string(),
   dimension: z.enum(['REALISTIC', 'INVESTIGATIVE', 'ARTISTIC', 'SOCIAL', 'ENTERPRISING', 'CONVENTIONAL']),
   isDiscoveryComplete: z.boolean(),
-  discoveredTraits: z.array(z.string()).optional(), // Present when isDiscoveryComplete = true
+  discoveredTraits: z.array(z.string()).nullish(), // Present when isDiscoveryComplete = true
 });
 
 export const SkillInitSkillsExplanatorSchema = z.object({
