@@ -18,4 +18,15 @@ export class UserGoalsService {
       create: { userId, careerGoalId },
     });
   }
+
+  /**
+   * Check if a user already has any Career Goal associated.
+   */
+  async hasGoal(userId: string): Promise<boolean> {
+    const goal = await this.prisma.userGoal.findFirst({
+      where: { userId },
+    });
+    return !!goal;
+  }
 }
+

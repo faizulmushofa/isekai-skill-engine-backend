@@ -72,6 +72,13 @@ export class SkillInitService {
     userId: string,
     userInput: string,
   ): Promise<SkillInitStartResponse> {
+    const hasGoal = await this.userGoalsService.hasGoal(userId);
+    if (hasGoal) {
+      throw new BadRequestException(
+        'Anda sudah memiliki Career Goal terdaftar. Sesi kuis/discovery tidak diperlukan lagi.',
+      );
+    }
+
     if (this.sessions.has(userId)) {
       throw new ConflictException(
         'Sesi skill-init sudah aktif. Selesaikan atau reset sesi sebelumnya.',

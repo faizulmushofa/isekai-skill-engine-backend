@@ -57,7 +57,7 @@ export const AI_TASK_ROUTES: Record<AiTaskType, AiTaskRoute> = {
     fallbacks: [
       {
         provider: 'gemini',
-        model: 'gemini-2.5-flash',
+        model: 'gemma-4-26b-a4b-it',
         apiKeysEnv: ['GEMINI_API_KEY'],
       },
     ],
@@ -94,7 +94,7 @@ export const AI_TASK_ROUTES: Record<AiTaskType, AiTaskRoute> = {
   },
   [AiTaskType.SKILL_INIT_CLASSIFICATION]: {
     provider: 'gemini',
-    model: 'gemini-2.5-flash-lite',
+    model: 'gemini-3.1-flash-lite',
     apiKeysEnv: ['GEMINI_API_KEY'],
     responseSchema: SkillInitClassificationSchema,
     temperature: 0.1, // Deterministic — strict classification
@@ -117,7 +117,7 @@ export const AI_TASK_ROUTES: Record<AiTaskType, AiTaskRoute> = {
     fallbacks: [
       {
         provider: 'gemini',
-        model: 'gemini-2.5-flash-lite',
+        model: 'gemma-4-31b-it',
         apiKeysEnv: ['GEMINI_API_KEY'],
       },
     ],
@@ -139,7 +139,7 @@ export const AI_TASK_ROUTES: Record<AiTaskType, AiTaskRoute> = {
   },
   [AiTaskType.SKILL_TAXONOMY_RESOLVER]: {
     provider: 'gemini',
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3-flash',
     apiKeysEnv: ['GEMINI_API_KEY'],
     responseSchema: SkillTaxonomySchema,
     temperature: 0.1, // Deterministic - keep it precise
@@ -153,17 +153,17 @@ export const AI_TASK_ROUTES: Record<AiTaskType, AiTaskRoute> = {
     ],
   },
   [AiTaskType.QUIZ_BATCH_EVALUATION]: {
-    provider: 'gemini',
-    model: 'gemini-2.5-flash',
-    apiKeysEnv: ['GEMINI_API_KEY'],
+    provider: 'groq',
+    model: 'llama-3.3-70b-versatile',
+    apiKeysEnv: ['GROQ_API_KEY'],
     responseSchema: QuizBatchEvaluationSchema,
     temperature: 0.3, // Low temperature for factual grading
     maxRetries: 2,
     fallbacks: [
       {
-        provider: 'groq',
-        model: 'llama-3.3-70b-versatile',
-        apiKeysEnv: ['GROQ_API_KEY'],
+        provider: 'gemini',
+        model: 'gemini-2.5-flash',
+        apiKeysEnv: ['GEMINI_API_KEY'],
       },
     ],
   },
