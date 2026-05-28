@@ -6,6 +6,8 @@ import { AiService } from '../../../infrastructure/ai/ai.service';
 import { SkillsService } from '../../skills/skills.service';
 import { SkillEventsService } from '../../skill-events/skill-events.service';
 import { GitProcessingService } from '../../../infrastructure/git-processing/git-processing.service';
+import { InMemoryQueueService } from '../../../infrastructure/queue/in-memory-queue.service';
+import { DeterministicExtractionService } from '../../../infrastructure/extraction/deterministic-extraction.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 describe('ProjectsService', () => {
@@ -17,6 +19,12 @@ describe('ProjectsService', () => {
       create: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+    },
+    userGoal: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    extractionCache: {
+      findUnique: jest.fn().mockResolvedValue(null),
     },
   };
 
@@ -36,9 +44,14 @@ describe('ProjectsService', () => {
     recordEvent: jest.fn(),
   };
 
-  const mockGitProcessingService = {
-    initializeRepository: jest.fn(),
-    processWebhookCommit: jest.fn(),
+  const mockGitProcessingService = {};
+
+  const mockQueueService = {
+    addJob: jest.fn().mockImplementation((id, cb) => cb()),
+  };
+
+  const mockDeterministic = {
+    extract: jest.fn().mockResolvedValue({ signals: [], languages: new Set(), skills: new Set() }),
   };
 
   const mockProject = {
@@ -79,6 +92,14 @@ describe('ProjectsService', () => {
         {
           provide: GitProcessingService,
           useValue: mockGitProcessingService,
+        },
+        {
+          provide: InMemoryQueueService,
+          useValue: mockQueueService,
+        },
+        {
+          provide: DeterministicExtractionService,
+          useValue: mockDeterministic,
         },
       ],
     }).compile();

@@ -5,6 +5,7 @@ import { SkillTaxonomyService } from './services/skill-taxonomy.service';
 export interface SkillInput {
   name: string;
   description: string;
+  parentId?: string | null;
 }
 
 @Injectable()
@@ -16,7 +17,7 @@ export class SkillsService {
 
   /**
    * Batch find-or-create skills by name.
-   * Leverages the Taxonomy Resolver to automatically assign parent-child graph edges.
+   * Leverages the Taxonomy Resolver to automatically assign parent-child graph edges, unless parentId is explicitly provided.
    * Returns array of skill IDs in the same order as input.
    */
   async findOrCreateMany(skills: SkillInput[]): Promise<string[]> {
@@ -33,14 +34,16 @@ export class SkillsService {
         continue;
       }
 
-      // Resolve the parent ID dynamically using AI
-      const parentId = await this.taxonomyService.resolveParentId(skill.name);
+      // Bypass taxonomy service if parentId is explicitly provided (even if null)
+      const parentId = skill.parentId !== undefined
+        ? skill.parentId
+        : await this.taxonomyService.resolveParentId(skill.name);
 
       const created = await this.prisma.skill.create({
         data: {
           name: skill.name,
           description: skill.description,
-          parentId, // Configured with AI-driven parent-child mapping
+          parentId,
         },
         select: { id: true },
       });

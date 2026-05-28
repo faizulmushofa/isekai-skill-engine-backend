@@ -33,6 +33,7 @@ export class StructuredResponseParser {
         return secondAttempt.data;
       }
 
+      this.logger.error(`AI Raw JSON parsed: ${JSON.stringify(sanitized)}`);
       throw new BadRequestException(
         `AI Response JSON schema validation failed: ${JSON.stringify(secondAttempt.error.format())}`,
       );

@@ -23,12 +23,13 @@ model User {
   createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamp
   updatedAt        DateTime?     @map("updated_at") @db.Timestamp
   
-  userGoals    UserGoal[]
-  journals     Journal[]
-  projects     Project[]
-  quizAttempts QuizAttempt[]
-  skillEvents  SkillEvent[]
-  userSkills   UserSkill[]
+  userGoals        UserGoal[]
+  journals         Journal[]
+  projects         Project[]
+  quizAttempts     QuizAttempt[]
+  skillEvents      SkillEvent[]
+  userSkills       UserSkill[]
+  extractionCaches ExtractionCache[]
 
   @@map("users")
 }
@@ -249,3 +250,83 @@ model UserSkill {
   @@map("user_skills")
 }
 
+// =========================
+// DETERMINISTIC EXTRACTION RULES
+// =========================
+model DeterministicRule {
+  id                 String   @id @default(uuid()) @db.Uuid
+  fileNamePattern    String?  @map("file_name_pattern") @db.VarChar(255)
+  fileContentPattern String?  @map("file_content_pattern") @db.VarChar(255)
+  detectedLanguage   String?  @map("detected_language") @db.VarChar(100)
+  detectedSkill      String?  @map("detected_skill") @db.VarChar(100)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamp
+
+  @@map("deterministic_rules")
+}
+
+// =========================
+// EXTRACTION CACHE
+// =========================
+model ExtractionCache {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  repoUrl         String   @map("repo_url") @db.VarChar(500)
+  commitHash      String?  @map("commit_hash") @db.VarChar(255)
+  extractedSkills Json     @map("extracted_skills")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // A user can only have one cache entry per repo + commit hash combination
+  @@unique([userId, repoUrl, commitHash])
+  @@map("extraction_caches")
+}
+
+// =========================
+// INFRASTRUCTURE & METRICS
+// =========================
+model DailyTokenUsage {
+  id               String   @id @default(uuid()) @db.Uuid
+  date             DateTime @db.Date // Store just the date (YYYY-MM-DD)
+  provider         String   @db.VarChar(50) // "gemini" or "groq"
+  model            String   @db.VarChar(200) @default("unknown")
+  taskType         String   @db.VarChar(100) @default("UNKNOWN_TASK")
+  userName         String   @db.VarChar(100) @default("SYSTEM")
+  totalTokens      Int      @default(0)
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  updatedAt        DateTime @default(now()) @map("updated_at") @db.Timestamp
+
+  @@unique([date, provider, model, taskType, userName])
+  @@map("daily_token_usages")
+}
+
+// =========================
+// AI USER BLOCKING
+// =========================
+model AiUserBlock {
+  id        String   @id @default(uuid()) @db.Uuid
+  userName  String   @map("user_name") @db.VarChar(100)
+  taskType  String   @map("task_type") @db.VarChar(100) // Menyimpan jenis AI Task yang diblokir (atau "ALL")
+  reason    String?  @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp
+
+  @@unique([userName, taskType])
+  @@map("ai_user_blocks")
+}
+
+// =========================
+// AI CONFIGURATION (DYNAMIC ROUTING)
+// =========================
+model AiTaskConfig {
+  id               String   @id @default(uuid()) @db.Uuid
+  taskType         String   @unique @map("task_type") @db.VarChar(100)
+  provider         String   @db.VarChar(50)
+  model            String   @db.VarChar(200)
+  temperature      Float    @default(0.5)
+  fallbackProvider String?  @map("fallback_provider") @db.VarChar(50)
+  fallbackModel    String?  @map("fallback_model") @db.VarChar(200)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp
+
+  @@map("ai_task_configs")
+}

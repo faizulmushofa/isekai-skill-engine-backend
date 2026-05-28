@@ -34,10 +34,10 @@ export class StartSkillInitDto {
 
 export class AnswerSkillInitDto {
   @ApiProperty({
-    example: 'Saya suka memecahkan masalah teknis yang kompleks dan membangun sistem',
-    description: 'Jawaban pengguna terhadap pertanyaan RIASEC discovery.',
+    example: 4,
+    description: 'Skor jawaban pengguna (1-4). 4 = Sangat Suka, 3 = Suka, 2 = Netral, 1 = Tidak Suka.',
   })
-  answer: string;
+  answer: number;
 }
 
 export class SelectCareerDto {

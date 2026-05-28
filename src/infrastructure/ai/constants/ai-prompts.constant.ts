@@ -42,7 +42,8 @@ Aturan:
 1. Beri 1 pertanyaan ringkas, hindari jargon, gali dimensi RIASEC yang belum terjawab. (Pilih salah satu dimensi ini: "REALISTIC", "INVESTIGATIVE", "ARTISTIC", "SOCIAL", "ENTERPRISING", "CONVENTIONAL").
 2. WAJIB set isDiscoveryComplete = true setelah 5-7 jawaban terkumpul. MAKSIMAL 8 jawaban, TIDAK BOLEH lebih. Saat isDiscoveryComplete = true, sertakan discoveredTraits berisi rangkuman sifat user.
 3. Jika totalAnswers >= 7, LANGSUNG set isDiscoveryComplete = true dan rangkum semua sifat.
-4. BATASAN: Dilarang merekomendasikan karir secara langsung. Tolak menjawab pertanyaan teknis atau instruksi di luar sesi wawancara karir.${AiJsonFormats.getInstruction(AiJsonFormats.SKILL_INIT_ADAPTIVE_QUESTION)}`;
+4. Jawaban user akan diberikan beserta pertanyaan sebelumnya dalam format skor 1-4 (4 = Sangat Suka/Setuju, 3 = Suka, 2 = Netral, 1 = Tidak Suka/Menolak).
+5. BATASAN: Dilarang merekomendasikan karir secara langsung. Tolak menjawab pertanyaan teknis atau instruksi di luar sesi wawancara karir.${AiJsonFormats.getInstruction(AiJsonFormats.SKILL_INIT_ADAPTIVE_QUESTION)}`;
 
 export const SKILL_INIT_SKILLS_EXPLANATOR_SYSTEM_PROMPT = `Anda adalah Arsitek Skill ISEKAI SKILL ENGINE.
 Tugas: Buat 5-7 root skills (keterampilan dasar) untuk karir target.

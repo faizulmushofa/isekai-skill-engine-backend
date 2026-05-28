@@ -133,7 +133,7 @@ export class JournalsService {
         evidence: string[];
         reason: string;
       }>;
-    }>(promptRequest);
+    }>({ ...promptRequest, userId });
 
     if (!aiResponse || !aiResponse.skills || aiResponse.skills.length === 0) {
       return; // Stop pipeline if AI finds 0 learning signals

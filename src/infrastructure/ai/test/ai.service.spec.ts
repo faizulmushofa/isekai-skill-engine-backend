@@ -12,6 +12,9 @@ import { AssessmentGeneratorPrompt } from '../prompt/assessment-generator.prompt
 import { ProjectEvidencePrompt } from '../prompt/project-evidence.prompt';
 import { BehavioralCareerAlignmentPrompt } from '../prompt/behavioral-career-alignment.prompt';
 import { AiTaskType } from '../enums/ai-task-type.enum';
+import { PrismaService } from '../../prisma/prisma.service';
+import { TokenTrackerService } from '../../token-management/token-tracker.service';
+import { DynamicRoutingService } from '../routing/dynamic-routing.service';
 
 describe('AiService (Arsitektur Revisi Tangguh - Gemini Only)', () => {
   let service: AiService;
@@ -64,6 +67,26 @@ describe('AiService (Arsitektur Revisi Tangguh - Gemini Only)', () => {
         StructuredResponseParser,
         ProviderExecutor,
         AiTaskRouter,
+        {
+          provide: DynamicRoutingService,
+          useValue: {
+            getRoutingConfig: jest.fn().mockReturnValue(null),
+            getRoute: jest.fn().mockReturnValue({ provider: 'gemini', model: 'test', apiKeysEnv: ['TEST_KEY'], temperature: 0.1 }),
+          },
+        },
+        {
+          provide: PrismaService,
+          useValue: {
+            user: { findUnique: jest.fn().mockResolvedValue(null) },
+            aiUserBlock: { findFirst: jest.fn().mockResolvedValue(null) },
+          },
+        },
+        {
+          provide: TokenTrackerService,
+          useValue: {
+            trackUsage: jest.fn(),
+          },
+        },
         {
           provide: ConfigService,
           useValue: {

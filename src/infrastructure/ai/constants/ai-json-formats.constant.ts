@@ -27,6 +27,7 @@ export class AiJsonFormats {
   "skills": [
     {
       "name": "<skill_name>",
+      "parentId": "<matched_parent_id_from_valid_list_or_null>",
       "confidence": 0.9,
       "complexity": "advanced",
       "evidence": ["<evidence_1>"],

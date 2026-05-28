@@ -6,6 +6,8 @@ import { AiService } from '../../../infrastructure/ai/ai.service';
 import { SkillsService } from '../../skills/skills.service';
 import { SkillEventsService } from '../../skill-events/skill-events.service';
 import { GitProcessingService } from '../../../infrastructure/git-processing/git-processing.service';
+import { InMemoryQueueService } from '../../../infrastructure/queue/in-memory-queue.service';
+import { DeterministicExtractionService } from '../../../infrastructure/extraction/deterministic-extraction.service';
 import { SourceType } from '@prisma/client';
 
 describe('Project Skill Orchestration Engine', () => {
@@ -17,11 +19,25 @@ describe('Project Skill Orchestration Engine', () => {
   let skillEventsService: SkillEventsService;
   let gitProcessingService: GitProcessingService;
 
+  const mockQueueService = {
+    addJob: jest.fn().mockImplementation((id, cb) => cb()),
+  };
+
+  const mockDeterministic = {
+    extract: jest.fn().mockResolvedValue({ signals: [], languages: new Set(), skills: new Set() }),
+  };
+
   const mockPrisma = {
     project: {
       findUnique: jest.fn(),
       update: jest.fn(),
       create: jest.fn(),
+    },
+    extractionCache: {
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+    userGoal: {
+      findMany: jest.fn().mockResolvedValue([]),
     },
   };
 
@@ -99,6 +115,8 @@ describe('Project Skill Orchestration Engine', () => {
         { provide: SkillsService, useValue: mockSkillsService },
         { provide: SkillEventsService, useValue: mockSkillEventsService },
         { provide: GitProcessingService, useValue: mockGitProcessingService },
+        { provide: InMemoryQueueService, useValue: mockQueueService },
+        { provide: DeterministicExtractionService, useValue: mockDeterministic },
       ],
     }).compile();
 

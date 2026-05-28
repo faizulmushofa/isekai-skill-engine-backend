@@ -13,6 +13,10 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.use(cookieParser());
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
   app.useGlobalInterceptors(new LoggingInterceptor());
   app.useStaticAssets(join(process.cwd(), 'src', 'frontend'));
 
@@ -45,7 +49,7 @@ async function bootstrap() {
     },
   });
 
-  const port = process.env.PORT ?? 3000;
+  const port = process.env.PORT ?? 3090;
   await app.listen(port);
 
   logger.log(`=================================================`);
