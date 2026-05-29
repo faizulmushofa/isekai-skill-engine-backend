@@ -14,9 +14,11 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.use(cookieParser());
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const frontendUrl: string = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const adminUrl: string = process.env.ADMIN_FRONTEND_URL || 'http://localhost:3001';
+  
   app.enableCors({
-    origin: frontendUrl,
+    origin: [frontendUrl, adminUrl],
     credentials: true,
   });
   app.useGlobalInterceptors(new LoggingInterceptor());

@@ -49,6 +49,38 @@ export class MailService {
       throw error;
     }
   }
+
+  async sendResetPasswordOtpEmail(to: string, otp: string) {
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
+        <h2 style="color: #2563eb; text-align: center;">Reset Password Anda</h2>
+        <p style="color: #334155; font-size: 16px;">Anda telah meminta untuk mereset password akun Aether System Anda. Silakan gunakan kode OTP berikut:</p>
+        <div style="background-color: #f8fafc; padding: 15px; text-align: center; border-radius: 8px; margin: 20px 0;">
+          <h1 style="color: #0f172a; letter-spacing: 5px; margin: 0; font-size: 32px;">${otp}</h1>
+        </div>
+        <p style="color: #64748b; font-size: 14px; text-align: center;">Kode OTP ini akan kedaluwarsa dalam 10 menit.</p>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+        <p style="color: #94a3b8; font-size: 12px; text-align: center;">Jika Anda tidak meminta reset password, abaikan email ini dan pastikan akun Anda aman.</p>
+      </div>
+    `;
+
+    try {
+      const fromName = this.configService.get<string>('SMTP_FROM_NAME') || 'Aether Gateway';
+      const fromEmail = this.configService.get<string>('SMTP_FROM_EMAIL') || 'noreply@aether-system.com';
+      
+      await this.transporter.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to,
+        subject: 'Kode OTP Reset Password Aether',
+        html,
+      });
+      this.logger.log(`Reset Password OTP email successfully sent to ${to}`);
+    } catch (error) {
+      this.logger.error(`Failed to send Reset Password OTP email to ${to}`, error);
+      throw error;
+    }
+  }
+
   async sendFeedbackEmail(type: 'bug' | 'feedback', username: string, userEmail: string, message: string) {
     const isBug = type === 'bug';
     const subject = isBug 
