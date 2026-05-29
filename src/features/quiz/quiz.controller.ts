@@ -1,6 +1,9 @@
 import { Controller, Post, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
-import { QuizService } from './quiz.service';
+import { CommandBus } from '@nestjs/cqrs';
+import { StartQuizCommand } from './commands/impl/start-quiz.command';
+import { SelectModeCommand } from './commands/impl/select-mode.command';
+import { SubmitAnswerCommand } from './commands/impl/submit-answer.command';
 import { StartQuizDto } from './dto/start-quiz.dto';
 import { SelectModeDto } from './dto/select-mode.dto';
 import { AnswerQuizDto } from './dto/answer-quiz.dto';
@@ -15,7 +18,7 @@ import { QuotaService } from '../../infrastructure/quota/quota.service';
 @Controller('quiz')
 export class QuizController {
   constructor(
-    private readonly quizService: QuizService,
+    private readonly commandBus: CommandBus,
     private readonly quotaService: QuotaService,
   ) {}
 
@@ -25,7 +28,7 @@ export class QuizController {
     @Body() dto: StartQuizDto,
   ): Promise<QuizStateResponse> {
     await this.quotaService.checkAndConsumeQuota(userId, 'QUIZ');
-    return this.quizService.startQuiz(userId, dto.topic);
+    return this.commandBus.execute(new StartQuizCommand(userId, dto.topic));
   }
 
   @Post('mode')
@@ -33,7 +36,7 @@ export class QuizController {
     @CurrentUser() userId: string,
     @Body() dto: SelectModeDto,
   ): Promise<QuizStateResponse> {
-    return this.quizService.selectMode(userId, dto.mode, dto.topic);
+    return this.commandBus.execute(new SelectModeCommand(userId, dto.mode, dto.topic));
   }
 
   @Post('answer')
@@ -41,6 +44,6 @@ export class QuizController {
     @CurrentUser() userId: string,
     @Body() dto: AnswerQuizDto,
   ): Promise<QuizStateResponse> {
-    return this.quizService.submitAnswer(userId, dto.answerText);
+    return this.commandBus.execute(new SubmitAnswerCommand(userId, dto.answerText));
   }
 }

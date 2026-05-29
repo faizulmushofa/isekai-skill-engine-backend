@@ -4,19 +4,18 @@ import { JournalsController } from './journals.controller';
 import { PrismaModule } from '../../infrastructure/prisma/prisma.module';
 import { ExtractionModule } from '../../infrastructure/extraction/extraction.module';
 import { AiModule } from '../../infrastructure/ai/ai.module';
-import { SkillsModule } from '../skills/skills.module';
-import { SkillEventsModule } from '../skill-events/skill-events.module';
+
+
+import { JournalsRepository } from './journals.repository';
 
 @Module({
   imports: [
     PrismaModule,
     ExtractionModule,
     AiModule,
-    SkillsModule,
-    SkillEventsModule,
   ],
   controllers: [JournalsController],
-  providers: [JournalsService],
-  exports: [JournalsService],
+  providers: [JournalsService, JournalsRepository],
+  exports: [JournalsService, JournalsRepository],
 })
 export class JournalsModule {}

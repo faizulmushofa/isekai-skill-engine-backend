@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
+import { SkillsRepository } from '../skills.repository';
 import { AiService } from '../../../infrastructure/ai/ai.service';
 import { SkillTaxonomyPrompt } from '../../../infrastructure/ai/prompt/skill-taxonomy.prompt';
 
 @Injectable()
 export class SkillTaxonomyService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly skillsRepository: SkillsRepository,
     private readonly aiService: AiService,
   ) {}
 
@@ -16,12 +16,7 @@ export class SkillTaxonomyService {
    */
   async resolveParentId(newSkillName: string): Promise<string | null> {
     // 1. Fetch all candidate skills currently in the database
-    const existingSkills = await this.prisma.skill.findMany({
-      select: {
-        id: true,
-        name: true,
-      },
-    });
+    const existingSkills = await this.skillsRepository.findAllForTaxonomy();
 
     // If database is completely empty, it must be a root skill
     if (existingSkills.length === 0) {

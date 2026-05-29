@@ -7,33 +7,32 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { Project, SourceType } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ProjectsRepository } from './projects.repository';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { OrchestrateProjectDto } from './dto/orchestrate-project.dto';
 import { ExtractionService } from '../../infrastructure/extraction/extraction.service';
 import { AiService } from '../../infrastructure/ai/ai.service';
-import { SkillsService } from '../skills/skills.service';
-import { SkillEventsService } from '../skill-events/skill-events.service';
 import { GitProcessingService } from '../../infrastructure/git-processing/git-processing.service';
 import { ProjectEvidencePrompt } from '../../infrastructure/ai/prompt/project-evidence.prompt';
 import { AiTaskType } from '../../infrastructure/ai/enums/ai-task-type.enum';
 import { InMemoryQueueService } from '../../infrastructure/queue/in-memory-queue.service';
 import { DeterministicExtractionService } from '../../infrastructure/extraction/deterministic-extraction.service';
+import { SkillEvidenceGeneratedEvent } from '../../shared/events/skill-evidence-generated.event';
 
 @Injectable()
 export class ProjectsService {
   private readonly logger = new Logger(ProjectsService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly projectsRepository: ProjectsRepository,
     private readonly extractionService: ExtractionService,
     private readonly aiService: AiService,
-    private readonly skillsService: SkillsService,
-    private readonly skillEventsService: SkillEventsService,
     private readonly gitProcessingService: GitProcessingService,
     private readonly queueService: InMemoryQueueService,
     private readonly deterministicService: DeterministicExtractionService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(userId: string, dto: CreateProjectDto): Promise<Project> {
@@ -41,22 +40,17 @@ export class ProjectsService {
       throw new BadRequestException('Title tidak boleh kosong');
     }
 
-    return this.prisma.project.create({
-      data: {
-        title: dto.title.trim(),
-        description: dto.description?.trim() || null,
-        repositoryUrl: dto.repositoryUrl?.trim() || null,
-        reportContent: dto.reportContent?.trim() || null,
-        userId,
-      },
+    return this.projectsRepository.createProject({
+      title: dto.title.trim(),
+      description: dto.description?.trim() || null,
+      repositoryUrl: dto.repositoryUrl?.trim() || null,
+      reportContent: dto.reportContent?.trim() || null,
+      user: { connect: { id: userId } },
     });
   }
 
   async findAll(userId: string): Promise<Project[]> {
-    return this.prisma.project.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.projectsRepository.findProjectsByUserId(userId);
   }
 
   async findOne(userId: string, id: string): Promise<Project> {
@@ -64,9 +58,7 @@ export class ProjectsService {
       throw new BadRequestException('ID project wajib diisi');
     }
 
-    const project = await this.prisma.project.findUnique({
-      where: { id },
-    });
+    const project = await this.projectsRepository.findProjectById(id);
 
     if (!project || project.userId !== userId) {
       throw new NotFoundException(`Project dengan ID '${id}' tidak ditemukan`);
@@ -89,15 +81,7 @@ export class ProjectsService {
     
     // Check Extraction Cache to bypass everything if already processed
     if (repositoryUrl && dto.commitHash) {
-      const cached = await this.prisma.extractionCache.findUnique({
-        where: {
-          userId_repoUrl_commitHash: {
-            userId,
-            repoUrl: repositoryUrl,
-            commitHash: dto.commitHash,
-          }
-        }
-      });
+      const cached = await this.projectsRepository.findExtractionCache(userId, repositoryUrl, dto.commitHash);
 
       if (cached) {
         this.logger.log(`[Project Extraction] Returning cached result for ${repositoryUrl} @ ${dto.commitHash}`);
@@ -182,10 +166,7 @@ export class ProjectsService {
         cleanText = extracted.normalizedText || extracted.rawText || '';
         this.logger.log(`[Project Extraction Background] Content successfully extracted from file upload`);
 
-        await this.prisma.project.update({
-          where: { id: projectId },
-          data: { reportContent: cleanText },
-        });
+        await this.projectsRepository.updateProject(projectId, { reportContent: cleanText });
       } finally {
         if (fs.existsSync(tempFilePath)) {
           await fs.promises.unlink(tempFilePath);
@@ -231,18 +212,7 @@ export class ProjectsService {
     ].filter(Boolean).join('\n\n');
 
     // Fetch user's active career goal skills to pass as valid parent IDs
-    const activeGoals = await this.prisma.userGoal.findMany({
-      where: { userId },
-      include: {
-        careerGoal: {
-          include: {
-            careerGoalSkills: {
-              include: { skill: true }
-            }
-          }
-        }
-      }
-    });
+    const activeGoals = await this.projectsRepository.findActiveUserGoals(userId);
 
     const validParentSkills: Array<{id: string; name: string}> = [];
     if (activeGoals.length > 0) {
@@ -291,15 +261,6 @@ export class ProjectsService {
           continue; // Drop the skill entirely
         }
 
-        const skillIds = await this.skillsService.findOrCreateMany([
-          {
-            name: skill.name.trim(),
-            description: skill.reason || `Extracted from project "${project.title}"`,
-            parentId: skill.parentId,
-          },
-        ]);
-        const skillId = skillIds[0];
-
         let confidence = skill.confidence;
         if (mode === 'COMMIT') {
           confidence = Math.max(0.05, Math.min(0.4, confidence));
@@ -308,12 +269,28 @@ export class ProjectsService {
         }
         const rawScore = confidence * 100.0;
 
-        const dbEvent = await this.skillEventsService.recordEvent({
-          userId,
-          skillId,
-          sourceType: SourceType.PROJECT,
+        // Use EventEmitter for Gamification processing
+        this.eventEmitter.emit(
+          'skill.evidence.generated',
+          new SkillEvidenceGeneratedEvent(
+            userId,
+            skill.name,
+            skill.reason || `Extracted from project "${project.title}"`,
+            SourceType.PROJECT,
+            projectId,
+            rawScore,
+            JSON.stringify({
+              signals: skill.evidence,
+              subSkills: [{ name: skill.name, weight: confidence }],
+              bayesianScore: rawScore,
+            }),
+          ),
+        );
+
+        generatedEvents.push({
+          skillName: skill.name,
           sourceId: projectId,
-          rawScore,
+          rawScore: rawScore,
           reason: skill.reason,
           metadata: {
             signals: skill.evidence,
@@ -321,48 +298,15 @@ export class ProjectsService {
             bayesianScore: rawScore,
           },
         });
-
-        generatedEvents.push({
-          skillId,
-          skillName: skill.name,
-          sourceId: projectId,
-          rawScore: dbEvent.rawScore,
-          weightedScore: dbEvent.weightedScore,
-          contribution: dbEvent.contribution,
-          oldProgress: dbEvent.oldProgress,
-          newProgress: dbEvent.newProgress,
-          reason: dbEvent.reason,
-          metadata: dbEvent.metadata,
-        });
       }
     }
 
     // Cache the result
     if (repositoryUrl && dto.commitHash) {
-       await this.prisma.extractionCache.upsert({
-         where: {
-           userId_repoUrl_commitHash: {
-             userId,
-             repoUrl: repositoryUrl,
-             commitHash: dto.commitHash,
-           }
-         },
-         create: {
-           userId,
-           repoUrl: repositoryUrl,
-           commitHash: dto.commitHash,
-           extractedSkills: generatedEvents,
-         },
-         update: {
-           extractedSkills: generatedEvents,
-         }
-       });
+       await this.projectsRepository.upsertExtractionCache(userId, repositoryUrl, dto.commitHash, generatedEvents);
     }
     // Save latest analysis results to Project directly for frontend access
-    await this.prisma.project.update({
-      where: { id: projectId },
-      data: { latestAnalysis: generatedEvents },
-    });
+    await this.projectsRepository.updateProject(projectId, { latestAnalysis: generatedEvents });
 
     this.logger.log(`[Project Extraction Background] Orchestration completed. Extracted ${generatedEvents.length} skill events.`);
   }

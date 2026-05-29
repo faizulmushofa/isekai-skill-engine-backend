@@ -14,9 +14,13 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.use(cookieParser());
-  const frontendUrl: string = process.env.FRONTEND_URL || 'http://localhost:3000';
-  const adminUrl: string = process.env.ADMIN_FRONTEND_URL || 'http://localhost:3001';
-  
+  const frontendUrl: string = process.env.FRONTEND_URL as string;
+  const adminUrl: string = process.env.ADMIN_FRONTEND_URL as string;
+
+  if (!frontendUrl || !adminUrl) {
+    throw new Error('FRONTEND_URL and ADMIN_FRONTEND_URL must be defined in environment variables.');
+  }
+
   app.enableCors({
     origin: [frontendUrl, adminUrl],
     credentials: true,
@@ -56,7 +60,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document, {
     swaggerOptions: {
-      persistAuthorization: true, // Token tersimpan saat refresh
+      persistAuthorization: true,
       tagsSorter: 'alpha',
       operationsSorter: 'alpha',
     },

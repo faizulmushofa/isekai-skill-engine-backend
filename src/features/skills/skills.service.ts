@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { SkillsRepository } from './skills.repository';
 import { SkillTaxonomyService } from './services/skill-taxonomy.service';
 
 export interface SkillInput {
@@ -11,7 +11,7 @@ export interface SkillInput {
 @Injectable()
 export class SkillsService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly skillsRepository: SkillsRepository,
     private readonly taxonomyService: SkillTaxonomyService,
   ) {}
 
@@ -24,10 +24,7 @@ export class SkillsService {
     const skillIds: string[] = [];
 
     for (const skill of skills) {
-      const existing = await this.prisma.skill.findFirst({
-        where: { name: skill.name },
-        select: { id: true },
-      });
+      const existing = await this.skillsRepository.findByName(skill.name);
 
       if (existing) {
         skillIds.push(existing.id);
@@ -39,13 +36,10 @@ export class SkillsService {
         ? skill.parentId
         : await this.taxonomyService.resolveParentId(skill.name);
 
-      const created = await this.prisma.skill.create({
-        data: {
-          name: skill.name,
-          description: skill.description,
-          parentId,
-        },
-        select: { id: true },
+      const created = await this.skillsRepository.create({
+        name: skill.name,
+        description: skill.description,
+        parent: parentId ? { connect: { id: parentId } } : undefined,
       });
       
       skillIds.push(created.id);

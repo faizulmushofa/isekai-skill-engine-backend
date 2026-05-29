@@ -14,7 +14,10 @@ import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthen
 @Controller('infra')
 export class InfraDashboardController {
   private getWebAuthnConfig() {
-    const originStr = process.env.ADMIN_FRONTEND_URL || 'http://localhost:3001';
+    const originStr = process.env.ADMIN_FRONTEND_URL;
+    if (!originStr) {
+      throw new Error('ADMIN_FRONTEND_URL environment variable is not defined.');
+    }
     let rpID = 'localhost';
     try {
       const url = new URL(originStr);
@@ -23,7 +26,7 @@ export class InfraDashboardController {
     return { rpID, origin: originStr, rpName: 'Isekai Skill Engine' };
   }
 
-  private currentChallenge: string | null = null; // Store challenge temporarily
+  private currentChallenge: string | null = null;
 
   constructor(
     private readonly tokenTracker: TokenTrackerService,
@@ -38,6 +41,23 @@ export class InfraDashboardController {
   @ApiQuery({ name: 'key', required: true, description: 'Infra Secret Key' })
   async getBlockedUsers() {
     return this.prisma.aiUserBlock.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  @Get('users')
+  @UseGuards(InfraKeyGuard)
+  @ApiOperation({ summary: 'Get all users for dashboard' })
+  @ApiQuery({ name: 'key', required: true, description: 'Infra Secret Key' })
+  async getAllUsers() {
+    return this.prisma.user.findMany({
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        isEmailVerified: true,
+        createdAt: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
   }

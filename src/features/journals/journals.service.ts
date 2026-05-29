@@ -7,22 +7,21 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { SourceType, Journal } from '@prisma/client';
-import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { JournalsRepository } from './journals.repository';
 import { ExtractionService } from '../../infrastructure/extraction/extraction.service';
 import { AiService } from '../../infrastructure/ai/ai.service';
-import { SkillsService } from '../skills/skills.service';
-import { SkillEventsService } from '../skill-events/skill-events.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { SkillEvidenceGeneratedEvent } from '../../shared/events/skill-evidence-generated.event';
 import { CreateJournalDto } from './dto/create-journal.dto';
 import { LearningEvidencePrompt } from '../../infrastructure/ai/prompt/learning-evidence.prompt';
 
 @Injectable()
 export class JournalsService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly journalsRepository: JournalsRepository,
     private readonly extractionService: ExtractionService,
     private readonly aiService: AiService,
-    private readonly skillsService: SkillsService,
-    private readonly skillEventsService: SkillEventsService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -39,12 +38,10 @@ export class JournalsService {
     const cleanText = dto.content.trim();
 
     // 1. Persist the manual Journal record
-    const journal = await this.prisma.journal.create({
-      data: {
-        title: dto.title.trim(),
-        content: cleanText,
-        userId,
-      },
+    const journal = await this.journalsRepository.create({
+      title: dto.title.trim(),
+      content: cleanText,
+      user: { connect: { id: userId } },
     });
 
     // 2. Trigger the unified progression pipeline
@@ -89,12 +86,10 @@ export class JournalsService {
       }
 
       // C. Save the parsed Journal in DB
-      const journal = await this.prisma.journal.create({
-        data: {
-          title: file.originalname,
-          content: cleanText,
-          userId,
-        },
+      const journal = await this.journalsRepository.create({
+        title: file.originalname,
+        content: cleanText,
+        user: { connect: { id: userId } },
       });
 
       // D. Trigger the unified progression pipeline
@@ -139,41 +134,25 @@ export class JournalsService {
       return; // Stop pipeline if AI finds 0 learning signals
     }
 
-    // STAGE 3: Skill Graph Mapping Layer (Dynamically resolves edges & parentIds via AI)
-    const skillIds = await this.skillsService.findOrCreateMany(
-      aiResponse.skills.map((s) => ({
-        name: s.name,
-        description: s.reason,
-      })),
-    );
-
-    // STAGE 4, 5 & 6: Bayesian progression math, transactional logging & projection mapping
-    for (let i = 0; i < aiResponse.skills.length; i++) {
-      const s = aiResponse.skills[i];
-      const skillId = skillIds[i];
-
-      // Logs original action and recursively propagates decay delta up ancestors
-      await this.skillEventsService.recordEvent({
-        userId,
-        skillId,
-        sourceType: SourceType.JOURNAL,
-        sourceId: journalId,
-        rawScore: s.confidence * 100.0, // scale confidence to score delta [0-100]
-        reason: s.reason,
-        metadata: {
-          sourceRef,
-          rawText: cleanText.substring(0, 1000), // Clamp long texts to avoid payload bloating
-          rawSignals: s.evidence,
-        },
-      });
+    // STAGE 3, 4, 5 & 6: Replaced by Event Driven Architecture (Pub/Sub)
+    for (const s of aiResponse.skills) {
+      this.eventEmitter.emit(
+        'skill.evidence.generated',
+        new SkillEvidenceGeneratedEvent(
+          userId,
+          s.name,
+          s.reason,
+          SourceType.JOURNAL,
+          journalId,
+          s.confidence * 100.0,
+          s.reason, // Use reason as event reason
+        ),
+      );
     }
   }
 
   async findAll(userId: string): Promise<Journal[]> {
-    return this.prisma.journal.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.journalsRepository.findByUserId(userId);
   }
 
   async findOne(userId: string, id: string): Promise<Journal> {
@@ -181,9 +160,7 @@ export class JournalsService {
       throw new BadRequestException('ID journal wajib diisi');
     }
 
-    const journal = await this.prisma.journal.findUnique({
-      where: { id },
-    });
+    const journal = await this.journalsRepository.findById(id);
 
     if (!journal || journal.userId !== userId) {
       throw new NotFoundException(`Journal dengan ID '${id}' tidak ditemukan`);
