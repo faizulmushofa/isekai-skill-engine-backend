@@ -129,4 +129,8 @@ export class UsersService {
     const updatedUser = await this.usersRepository.update(userId, updateData);
     return UserMapper.toResponse(updatedUser);
   }
+
+  async deleteUser(userId: string): Promise<void> {
+    await this.usersRepository.delete(userId);
+  }
 }

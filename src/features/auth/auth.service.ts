@@ -17,6 +17,7 @@ import { UserResponse } from '../users/mapper/user.mapper';
 import type { Request, Response } from 'express';
 import * as crypto from 'crypto';
 
+import { User } from '@prisma/client';
 import { MailService } from '../mail/mail.service';
 
 @Injectable()
@@ -47,11 +48,17 @@ export class AuthService {
     const otpCode = this.generateOtp();
     const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
+    let createdUser: UserResponse | null = null;
+    let originalUser: User | null = null;
+
     if (existingUser) {
       if (existingUser.isEmailVerified) {
         throw new BadRequestException('Email sudah terdaftar dan terverifikasi.');
       }
       
+      // Simpan backup data lama sebelum diupdate
+      originalUser = { ...existingUser };
+
       // Jika belum terverifikasi, perbarui data user dan kirim ulang OTP
       await this.usersService.updateSystemUser(existingUser.id, {
         username: payload.username,
@@ -61,7 +68,7 @@ export class AuthService {
       });
     } else {
       // Buat user baru jika belum ada
-      await this.usersService.createUser({
+      createdUser = await this.usersService.createUser({
         email: payload.email,
         username: payload.username,
         passwordHash,
@@ -74,7 +81,30 @@ export class AuthService {
       await this.mailService.sendOtpEmail(payload.email, otpCode);
     } catch (error) {
       console.error('Failed to send OTP email during registration', error);
-      // Biarkan alur berlanjut agar user bisa mencoba 'Kirim Ulang OTP' nanti
+      
+      // FALLBACK (Rollback): jika email gagal dikirim, hapus/kembalikan data database ke state awal!
+      if (createdUser) {
+        // Hapus user baru yang gagal dikirim emailnya
+        try {
+          await this.usersService.deleteUser(createdUser.id);
+        } catch (dbError) {
+          console.error('Failed to delete failed-registration user from database', dbError);
+        }
+      } else if (originalUser) {
+        // Kembalikan data user lama ke state sebelum diupdate
+        try {
+          await this.usersService.updateSystemUser(originalUser.id, {
+            username: originalUser.username,
+            passwordHash: originalUser.passwordHash,
+            otpCode: originalUser.otpCode,
+            otpExpiresAt: originalUser.otpExpiresAt,
+          });
+        } catch (dbError) {
+          console.error('Failed to revert user updates after email failure', dbError);
+        }
+      }
+
+      throw new BadRequestException('Gagal mengirim email OTP. Silakan coba beberapa saat lagi.');
     }
 
     return { message: 'Register successful, please verify OTP', email: payload.email };

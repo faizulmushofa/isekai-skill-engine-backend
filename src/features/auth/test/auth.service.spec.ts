@@ -13,6 +13,7 @@ import { PASSWORD_SERVICE_TOKEN } from '../../../shared/security/password.servic
 import { UnauthorizedException } from '@nestjs/common';
 import { Response, Request } from 'express';
 import * as crypto from 'crypto';
+import { MailService } from '../../mail/mail.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -40,6 +41,10 @@ describe('AuthService', () => {
     compare: jest.fn(),
   };
 
+  const mockMailService = {
+    sendOtpEmail: jest.fn(),
+  };
+
   const mockUserResponse = {
     id: 'user-uuid-1',
     email: 'test@example.com',
@@ -53,6 +58,7 @@ describe('AuthService', () => {
     username: 'testuser',
     passwordHash: 'hashed_password',
     refreshTokenHash: null as string | null,
+    isEmailVerified: true,
     createdAt: new Date(),
   };
 
@@ -75,6 +81,10 @@ describe('AuthService', () => {
           provide: PASSWORD_SERVICE_TOKEN,
           useValue: mockPasswordService,
         },
+        {
+          provide: MailService,
+          useValue: mockMailService,
+        },
       ],
     }).compile();
 
@@ -90,9 +100,11 @@ describe('AuthService', () => {
   });
 
   describe('register', () => {
-    it('harus meng-hash password dan memanggil usersService.createUser', async () => {
+    it('harus meng-hash password dan memanggil usersService.createUser serta mailService.sendOtpEmail', async () => {
       mockPasswordService.hash.mockResolvedValue('hashed_password');
       mockUsersService.createUser.mockResolvedValue(mockUserResponse);
+      mockUsersService.findRawByEmail.mockResolvedValue(null);
+      mockMailService.sendOtpEmail.mockResolvedValue(undefined);
 
       const payload = {
         email: 'test@example.com',
@@ -102,13 +114,43 @@ describe('AuthService', () => {
 
       const result = await service.register(payload);
 
-      expect(result).toEqual({ message: 'Register successful' });
+      expect(result).toEqual({
+        message: 'Register successful, please verify OTP',
+        email: 'test@example.com',
+      });
       expect(mockPasswordService.hash).toHaveBeenCalledWith('password123');
       expect(mockUsersService.createUser).toHaveBeenCalledWith({
         email: 'test@example.com',
         username: 'testuser',
         passwordHash: 'hashed_password',
+        otpCode: expect.any(String),
+        otpExpiresAt: expect.any(Date),
       });
+      expect(mockMailService.sendOtpEmail).toHaveBeenCalledWith(
+        'test@example.com',
+        expect.any(String),
+      );
+    });
+
+    it('harus melakukan rollback (menghapus user baru) dan melempar BadRequestException jika pengiriman email OTP gagal', async () => {
+      mockPasswordService.hash.mockResolvedValue('hashed_password');
+      mockUsersService.createUser.mockResolvedValue(mockUserResponse);
+      mockUsersService.findRawByEmail.mockResolvedValue(null);
+      mockMailService.sendOtpEmail.mockRejectedValue(new Error('Brevo service down'));
+      mockUsersService.deleteUser = jest.fn().mockResolvedValue(undefined);
+
+      const payload = {
+        email: 'test@example.com',
+        username: 'testuser',
+        password: 'password123',
+      };
+
+      await expect(service.register(payload)).rejects.toThrow(
+        'Gagal mengirim email OTP. Silakan coba beberapa saat lagi.',
+      );
+
+      expect(mockUsersService.createUser).toHaveBeenCalled();
+      expect(mockUsersService.deleteUser).toHaveBeenCalledWith(mockUserResponse.id);
     });
   });
 
