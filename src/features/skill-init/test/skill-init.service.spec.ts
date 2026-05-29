@@ -248,8 +248,8 @@ describe('SkillInitService (Orchestrator)', () => {
       expect(mockCareerGoalsService.findOrCreate).toHaveBeenCalledWith('Backend Engineer');
       expect(mockUserGoalsService.create).toHaveBeenCalledWith('user-1', 'career-goal-id');
       expect(mockSkillsService.findOrCreateMany).toHaveBeenCalledWith([
-        { name: 'REST API Design', description: 'API fundamentals' },
-        { name: 'Database Design', description: 'DB fundamentals' },
+        { name: 'REST API Design', description: 'API fundamentals', parentId: null },
+        { name: 'Database Design', description: 'DB fundamentals', parentId: null },
       ]);
       expect(mockCareerGoalSkillsService.linkSkills).toHaveBeenCalledWith(
         'career-goal-id',

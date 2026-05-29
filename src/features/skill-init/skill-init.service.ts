@@ -258,11 +258,12 @@ export class SkillInitService {
     // 2. Associate user with career goal
     await this.userGoalsService.create(userId, careerGoalId);
 
-    // 3. Upsert all skills
+    // 3. Upsert all skills (force parentId to null to ensure they are created as clean Root Skills)
     const skillIds = await this.skillsService.findOrCreateMany(
       skillsResult.skills.map((s) => ({
         name: s.name,
         description: s.description,
+        parentId: null,
       })),
     );
 

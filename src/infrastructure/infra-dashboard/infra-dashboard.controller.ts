@@ -62,6 +62,15 @@ export class InfraDashboardController {
     });
   }
 
+  @Delete('users/:id')
+  @UseGuards(InfraKeyGuard)
+  @ApiOperation({ summary: 'Delete a user' })
+  @ApiQuery({ name: 'key', required: true, description: 'Infra Secret Key' })
+  async deleteUser(@Param('id') id: string) {
+    await this.prisma.user.delete({ where: { id } });
+    return { success: true };
+  }
+
   @Post('blocks')
   @UseGuards(InfraKeyGuard)
   @ApiOperation({ summary: 'Block a user from an AI task' })
@@ -325,9 +334,9 @@ export class InfraDashboardController {
       // Set HttpOnly cookie
       res.cookie('infra_session', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: true, // Always secure for sameSite: 'none'
         maxAge: 3600000, // 1 hour
-        sameSite: 'strict',
+        sameSite: 'none', // Allow cross-origin requests from Vercel to Railway
       });
 
       return { verified: true };
