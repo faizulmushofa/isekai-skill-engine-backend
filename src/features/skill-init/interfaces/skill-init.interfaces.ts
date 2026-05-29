@@ -16,6 +16,7 @@ export interface SkillInitSession {
   step: SkillInitStep;
   intent?: SkillInitIntent;
   discoveryAnswers: string[];          // Answers to RIASEC questions
+  currentQuestion?: string;            // The question currently being asked
   discoveredTraits: string[];          // Traits extracted after discovery complete
   careerOptions?: CareerOption[];      // Career options presented to user
   selectedCareer?: string;            // Career chosen by user

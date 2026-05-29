@@ -1,6 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProjectsService } from '../projects.service';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
+import { ExtractionService } from '../../../infrastructure/extraction/extraction.service';
+import { AiService } from '../../../infrastructure/ai/ai.service';
+import { SkillsService } from '../../skills/skills.service';
+import { SkillEventsService } from '../../skill-events/skill-events.service';
+import { GitProcessingService } from '../../../infrastructure/git-processing/git-processing.service';
+import { InMemoryQueueService } from '../../../infrastructure/queue/in-memory-queue.service';
+import { DeterministicExtractionService } from '../../../infrastructure/extraction/deterministic-extraction.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 describe('ProjectsService', () => {
@@ -13,6 +20,38 @@ describe('ProjectsService', () => {
       findMany: jest.fn(),
       findUnique: jest.fn(),
     },
+    userGoal: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    extractionCache: {
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+  };
+
+  const mockExtractionService = {
+    extractContent: jest.fn(),
+  };
+
+  const mockAiService = {
+    generate: jest.fn(),
+  };
+
+  const mockSkillsService = {
+    findOrCreateMany: jest.fn(),
+  };
+
+  const mockSkillEventsService = {
+    recordEvent: jest.fn(),
+  };
+
+  const mockGitProcessingService = {};
+
+  const mockQueueService = {
+    addJob: jest.fn().mockImplementation((id, cb) => cb()),
+  };
+
+  const mockDeterministic = {
+    extract: jest.fn().mockResolvedValue({ signals: [], languages: new Set(), skills: new Set() }),
   };
 
   const mockProject = {
@@ -33,6 +72,34 @@ describe('ProjectsService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: ExtractionService,
+          useValue: mockExtractionService,
+        },
+        {
+          provide: AiService,
+          useValue: mockAiService,
+        },
+        {
+          provide: SkillsService,
+          useValue: mockSkillsService,
+        },
+        {
+          provide: SkillEventsService,
+          useValue: mockSkillEventsService,
+        },
+        {
+          provide: GitProcessingService,
+          useValue: mockGitProcessingService,
+        },
+        {
+          provide: InMemoryQueueService,
+          useValue: mockQueueService,
+        },
+        {
+          provide: DeterministicExtractionService,
+          useValue: mockDeterministic,
         },
       ],
     }).compile();

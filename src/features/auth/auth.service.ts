@@ -14,6 +14,8 @@ import { UserResponse } from '../users/mapper/user.mapper';
 import type { Request, Response } from 'express';
 import * as crypto from 'crypto';
 
+import { MailService } from '../mail/mail.service';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -21,25 +23,58 @@ export class AuthService {
     private readonly jwtService: JwtService,
     @Inject(PASSWORD_SERVICE_TOKEN)
     private readonly passwordService: IPasswordService,
+    private readonly mailService: MailService,
   ) {}
 
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
-  async register(payload: RegisterDto): Promise<{ message: string }> {
+  private generateOtp(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  async register(payload: RegisterDto): Promise<{ message: string; email: string }> {
     if (!payload || !payload.email || !payload.username || !payload.password) {
-      throw new BadRequestException(
-        'Email, username, dan password wajib diisi',
-      );
+      throw new BadRequestException('Email, username, dan password wajib diisi');
     }
+
+    const existingUser = await this.usersService.findRawByEmail(payload.email);
     const passwordHash = await this.passwordService.hash(payload.password);
-    await this.usersService.createUser({
-      email: payload.email,
-      username: payload.username,
-      passwordHash,
-    });
-    return { message: 'Register successful' };
+    const otpCode = this.generateOtp();
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    if (existingUser) {
+      if (existingUser.isEmailVerified) {
+        throw new BadRequestException('Email sudah terdaftar dan terverifikasi.');
+      }
+      
+      // Jika belum terverifikasi, perbarui data user dan kirim ulang OTP
+      await this.usersService.updateSystemUser(existingUser.id, {
+        username: payload.username,
+        passwordHash,
+        otpCode,
+        otpExpiresAt,
+      });
+    } else {
+      // Buat user baru jika belum ada
+      await this.usersService.createUser({
+        email: payload.email,
+        username: payload.username,
+        passwordHash,
+        otpCode,
+        otpExpiresAt,
+      });
+    }
+
+    try {
+      await this.mailService.sendOtpEmail(payload.email, otpCode);
+    } catch (error) {
+      console.error('Failed to send OTP email during registration', error);
+      // Biarkan alur berlanjut agar user bisa mencoba 'Kirim Ulang OTP' nanti
+    }
+
+    return { message: 'Register successful, please verify OTP', email: payload.email };
   }
 
   async login(
@@ -62,6 +97,10 @@ export class AuthService {
       throw new UnauthorizedException('Kredensial login tidak valid');
     }
 
+    if (!user.isEmailVerified) {
+      throw new UnauthorizedException('Please verify your email first');
+    }
+
     const accessToken = this.jwtService.signAccessToken({ userId: user.id });
     const refreshToken = this.jwtService.signRefreshToken({ userId: user.id });
 
@@ -76,6 +115,68 @@ export class AuthService {
       message: 'Login successful',
       accessToken,
     };
+  }
+
+  async verifyOtp(email: string, otpCode: string): Promise<{ message: string }> {
+    if (!email || !otpCode) {
+      throw new BadRequestException('Email dan OTP code wajib diisi');
+    }
+
+    const user = await this.usersService.findRawByEmail(email);
+    if (!user) {
+      throw new BadRequestException('User tidak ditemukan');
+    }
+
+    if (user.isEmailVerified) {
+      throw new BadRequestException('Email sudah diverifikasi');
+    }
+
+    if (user.otpCode !== otpCode) {
+      throw new BadRequestException('Kode OTP tidak valid');
+    }
+
+    if (!user.otpExpiresAt || user.otpExpiresAt < new Date()) {
+      throw new BadRequestException('Kode OTP sudah kedaluwarsa');
+    }
+
+    await this.usersService.updateSystemUser(user.id, {
+      isEmailVerified: true,
+      otpCode: null,
+      otpExpiresAt: null,
+    });
+
+    return { message: 'Verifikasi email berhasil' };
+  }
+
+  async resendOtp(email: string): Promise<{ message: string }> {
+    if (!email) {
+      throw new BadRequestException('Email wajib diisi');
+    }
+
+    const user = await this.usersService.findRawByEmail(email);
+    if (!user) {
+      throw new BadRequestException('User tidak ditemukan');
+    }
+
+    if (user.isEmailVerified) {
+      throw new BadRequestException('Email sudah diverifikasi');
+    }
+
+    const otpCode = this.generateOtp();
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await this.usersService.updateSystemUser(user.id, {
+      otpCode,
+      otpExpiresAt,
+    });
+
+    try {
+      await this.mailService.sendOtpEmail(email, otpCode);
+    } catch (error) {
+      throw new BadRequestException('Gagal mengirim email OTP');
+    }
+
+    return { message: 'OTP berhasil dikirim ulang' };
   }
 
   async refresh(req: Request, res: Response): Promise<{ accessToken: string }> {

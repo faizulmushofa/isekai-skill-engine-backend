@@ -15,7 +15,7 @@ export class GroqProvider extends AiProvider {
       responseSchema: any;
       temperature: number;
     },
-  ): Promise<string> {
+  ): Promise<{ text: string; usage: { promptTokens: number; completionTokens: number; totalTokens: number } }> {
     const url = 'https://api.groq.com/openai/v1/chat/completions';
 
     // Groq requires standard OpenAI chat completion payload.
@@ -51,6 +51,14 @@ export class GroqProvider extends AiProvider {
       throw new Error('Groq API returned an empty or invalid response candidate.');
     }
 
-    return contentText;
+    const usage = data?.usage || {};
+    return {
+      text: contentText,
+      usage: {
+        promptTokens: usage.prompt_tokens || 0,
+        completionTokens: usage.completion_tokens || 0,
+        totalTokens: usage.total_tokens || 0,
+      }
+    };
   }
 }

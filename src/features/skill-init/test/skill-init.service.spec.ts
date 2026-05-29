@@ -65,7 +65,7 @@ describe('SkillInitService (Orchestrator)', () => {
 
   const mockAiService = { generate: jest.fn() };
   const mockCareerGoalsService = { findOrCreate: jest.fn() };
-  const mockUserGoalsService = { create: jest.fn() };
+  const mockUserGoalsService = { create: jest.fn(), hasGoal: jest.fn() };
   const mockSkillsService = { findOrCreateMany: jest.fn() };
   const mockCareerGoalSkillsService = { linkSkills: jest.fn() };
   const mockUserSkillsService = { initializeProgress: jest.fn() };
@@ -85,6 +85,7 @@ describe('SkillInitService (Orchestrator)', () => {
 
     service = module.get<SkillInitService>(SkillInitService);
     jest.clearAllMocks();
+    mockUserGoalsService.hasGoal.mockResolvedValue(false);
   });
 
   it('should be defined', () => {
@@ -142,6 +143,14 @@ describe('SkillInitService (Orchestrator)', () => {
       // Coba start lagi
       await expect(service.start('user-1', 'input kedua')).rejects.toThrow(
         ConflictException,
+      );
+    });
+
+    it('harus melempar BadRequestException jika user sudah memiliki goal', async () => {
+      mockUserGoalsService.hasGoal.mockResolvedValueOnce(true);
+
+      await expect(service.start('user-1', 'saya ingin jadi backend engineer')).rejects.toThrow(
+        BadRequestException,
       );
     });
 

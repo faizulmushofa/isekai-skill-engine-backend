@@ -1,25 +1,27 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '../config/config.module';
 import { AiService } from './ai.service';
+import { AiTaskRouter } from './routing/ai-task-router';
+import { ProviderExecutor } from './routing/provider-executor';
+import { StructuredResponseParser } from './parser/structured-response-parser';
 import { GeminiProvider } from './providers/gemini.provider';
 import { GroqProvider } from './providers/groq.provider';
+import { ConfigModule } from '../config/config.module';
 import { PromptGuardService } from './guard/prompt-guard.service';
-import { StructuredResponseParser } from './parser/structured-response-parser';
-import { ProviderExecutor } from './routing/provider-executor';
-import { AiTaskRouter } from './routing/ai-task-router';
+import { DynamicRoutingService } from './routing/dynamic-routing.service';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, PrismaModule],
   providers: [
+    AiService,
+    AiTaskRouter,
+    ProviderExecutor,
+    StructuredResponseParser,
     GeminiProvider,
     GroqProvider,
     PromptGuardService,
-    StructuredResponseParser,
-    ProviderExecutor,
-    AiTaskRouter,
-    AiService,
+    DynamicRoutingService,
   ],
-  exports: [AiService],
+  exports: [AiService, DynamicRoutingService],
 })
 export class AiModule {}
-

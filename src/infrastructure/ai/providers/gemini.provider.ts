@@ -16,7 +16,7 @@ export class GeminiProvider extends AiProvider {
       responseSchema: any;
       temperature: number;
     },
-  ): Promise<string> {
+  ): Promise<{ text: string; usage: { promptTokens: number; completionTokens: number; totalTokens: number } }> {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${config.apiKey}`;
 
     // The exact JSON structure is now baked directly into the systemPrompt.
@@ -46,6 +46,14 @@ export class GeminiProvider extends AiProvider {
       throw new Error('Gemini API returned an empty or invalid response candidate.');
     }
 
-    return contentText;
+    const usageMetadata = data?.usageMetadata || {};
+    return {
+      text: contentText,
+      usage: {
+        promptTokens: usageMetadata.promptTokenCount || 0,
+        completionTokens: usageMetadata.candidatesTokenCount || 0,
+        totalTokens: usageMetadata.totalTokenCount || 0,
+      }
+    };
   }
 }

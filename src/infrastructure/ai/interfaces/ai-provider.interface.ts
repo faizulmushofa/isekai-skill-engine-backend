@@ -12,5 +12,8 @@ export abstract class AiProvider {
       responseSchema: any;
       temperature: number;
     },
-  ): Promise<string>;
+  ): Promise<{ 
+    text: string; 
+    usage: { promptTokens: number; completionTokens: number; totalTokens: number } 
+  }>;
 }

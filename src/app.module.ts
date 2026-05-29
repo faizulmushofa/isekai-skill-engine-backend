@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
 import { SecurityModule } from './shared/security/security.module';
 import { AuthModule } from './features/auth/auth.module';
@@ -14,13 +16,27 @@ import { ConfigModule } from './infrastructure/config/config.module';
 import { AiModule } from './infrastructure/ai/ai.module';
 import { ExtractionModule } from './infrastructure/extraction/extraction.module';
 import { GitProcessingModule } from './infrastructure/git-processing/git-processing.module';
+import { QueueModule } from './infrastructure/queue/queue.module';
+import { TokenTrackerModule } from './infrastructure/token-management/token-tracker.module';
+import { InfraDashboardModule } from './infrastructure/infra-dashboard/infra-dashboard.module';
+import { MailModule } from './features/mail/mail.module';
+import { QuotaModule } from './infrastructure/quota/quota.module';
 
 @Module({
   imports: [
+    QuotaModule,
+    ThrottlerModule.forRoot([{
+      ttl: 1000,
+      limit: 50,
+    }]),
     ConfigModule,
+    MailModule,
     AiModule,
     ExtractionModule,
     GitProcessingModule,
+    QueueModule,
+    TokenTrackerModule,
+    InfraDashboardModule,
     PrismaModule,
     SecurityModule,
     AuthModule,
@@ -34,6 +50,11 @@ import { GitProcessingModule } from './infrastructure/git-processing/git-process
     SkillInitModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    }
+  ],
 })
 export class AppModule {}

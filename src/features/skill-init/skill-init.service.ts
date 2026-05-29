@@ -72,6 +72,13 @@ export class SkillInitService {
     userId: string,
     userInput: string,
   ): Promise<SkillInitStartResponse> {
+    const hasGoal = await this.userGoalsService.hasGoal(userId);
+    if (hasGoal) {
+      throw new BadRequestException(
+        'Anda sudah memiliki Career Goal terdaftar. Sesi kuis/discovery tidak diperlukan lagi.',
+      );
+    }
+
     if (this.sessions.has(userId)) {
       throw new ConflictException(
         'Sesi skill-init sudah aktif. Selesaikan atau reset sesi sebelumnya.',
@@ -87,15 +94,17 @@ export class SkillInitService {
     };
 
     // AI: Classify intent
-    const classification = await this.aiService.generate<ClassificationResult>(
-      SkillInitClassificationPrompt.build({ userInput }),
-    );
+    const classification = await this.aiService.generate<ClassificationResult>({
+      ...SkillInitClassificationPrompt.build({ userInput }),
+      userId,
+    });
 
     session.intent = classification.intent;
 
     if (classification.intent === 'DIRECT_GOAL' && classification.careerName) {
       // Skip discovery — go straight to career alignment
       const careerOptions = await this.fetchCareerOptions(
+        userId,
         classification.careerName,
         [],
       );
@@ -113,14 +122,16 @@ export class SkillInitService {
 
     // VAGUE_GOAL or EMPTY — begin discovery quiz
     const firstQuestion =
-      await this.aiService.generate<AdaptiveQuestionResult>(
-        SkillInitAdaptiveQuestionPrompt.build({
+      await this.aiService.generate<AdaptiveQuestionResult>({
+        ...SkillInitAdaptiveQuestionPrompt.build({
           previousAnswers: [],
           totalAnswers: 0,
         }),
-      );
+        userId,
+      });
 
     session.step = 'DISCOVERY';
+    session.currentQuestion = firstQuestion.question;
     this.sessions.set(userId, session);
 
     return {
@@ -138,7 +149,7 @@ export class SkillInitService {
    */
   async answer(
     userId: string,
-    answerText: string,
+    answerValue: number,
   ): Promise<SkillInitAnswerResponse> {
     const session = this.getActiveSession(userId);
 
@@ -148,19 +159,21 @@ export class SkillInitService {
       );
     }
 
-    // Record answer
-    session.discoveryAnswers.push(answerText);
+    // Record answer with question context
+    const currentQ = session.currentQuestion || 'Unknown Question';
+    session.discoveryAnswers.push(`Q: ${currentQ} | A: Score ${answerValue}/4`);
 
     const totalAnswers = session.discoveryAnswers.length;
     const isAtLimit = totalAnswers >= this.MAX_DISCOVERY_QUESTIONS;
 
     // AI: Get next question or conclude discovery
-    const result = await this.aiService.generate<AdaptiveQuestionResult>(
-      SkillInitAdaptiveQuestionPrompt.build({
+    const result = await this.aiService.generate<AdaptiveQuestionResult>({
+      ...SkillInitAdaptiveQuestionPrompt.build({
         previousAnswers: session.discoveryAnswers,
         totalAnswers,
       }),
-    );
+      userId,
+    });
 
     // Force completion if hard cap reached OR AI says complete
     if (result.isDiscoveryComplete || isAtLimit) {
@@ -169,6 +182,7 @@ export class SkillInitService {
 
       // Use discovered traits to run behavioral career alignment
       const careerOptions = await this.fetchCareerOptions(
+        userId,
         'based on RIASEC discovery',
         session.discoveredTraits,
       );
@@ -184,6 +198,7 @@ export class SkillInitService {
     }
 
     // Continue discovery
+    session.currentQuestion = result.question;
     this.sessions.set(userId, session);
     return {
       step: 'DISCOVERY',
@@ -203,7 +218,10 @@ export class SkillInitService {
   ): Promise<SkillInitSelectCareerResponse> {
     const session = this.getActiveSession(userId);
 
-    if (session.step !== 'CAREER_SELECTION') {
+    if (
+      session.step !== 'CAREER_SELECTION' &&
+      session.step !== 'SKILLS_GENERATION'
+    ) {
       throw new BadRequestException(
         'Belum saatnya memilih karier. Selesaikan proses discovery terlebih dahulu.',
       );
@@ -223,12 +241,13 @@ export class SkillInitService {
     session.step = 'SKILLS_GENERATION';
 
     // AI: Generate root skills
-    const skillsResult = await this.aiService.generate<SkillsExplanatorResult>(
-      SkillInitSkillsPrompt.build({
+    const skillsResult = await this.aiService.generate<SkillsExplanatorResult>({
+      ...SkillInitSkillsPrompt.build({
         careerName,
         discoveredTraits: session.discoveredTraits,
       }),
-    );
+      userId,
+    });
 
     // ── Persist via domain services (orchestration only, no Prisma here) ──
 
@@ -291,18 +310,20 @@ export class SkillInitService {
   }
 
   private async fetchCareerOptions(
+    userId: string,
     context: string,
     traits: string[],
   ): Promise<CareerOption[]> {
-    const result = await this.aiService.generate<CareerAlignmentResult>(
-      BehavioralCareerAlignmentPrompt.build({
+    const result = await this.aiService.generate<CareerAlignmentResult>({
+      ...BehavioralCareerAlignmentPrompt.build({
         hobbies: [],
         habits: [],
         interests: [context],
         preferredActivities: traits.length > 0 ? traits : [context],
         personalityTraits: traits,
       }),
-    );
+      userId,
+    });
 
     return result.careerGoals.map((cg) => ({
       title: cg.title,

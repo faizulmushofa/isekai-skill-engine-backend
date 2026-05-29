@@ -15,13 +15,17 @@ import { CreateJournalDto } from './dto/create-journal.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 import { Journal } from '@prisma/client';
+import { QuotaService } from '../../infrastructure/quota/quota.service';
 
 @ApiTags('Journals')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard)
 @Controller('journals')
 export class JournalsController {
-  constructor(private readonly journalsService: JournalsService) {}
+  constructor(
+    private readonly journalsService: JournalsService,
+    private readonly quotaService: QuotaService,
+  ) {}
 
   /**
    * Manual Text Ingestion Endpoint
@@ -31,6 +35,7 @@ export class JournalsController {
     @CurrentUser() userId: string,
     @Body() dto: CreateJournalDto,
   ): Promise<Journal> {
+    await this.quotaService.checkAndConsumeQuota(userId, 'JOURNAL');
     return this.journalsService.create(userId, dto);
   }
 
@@ -43,6 +48,7 @@ export class JournalsController {
     @CurrentUser() userId: string,
     @UploadedFile() file: any,
   ): Promise<Journal> {
+    await this.quotaService.checkAndConsumeQuota(userId, 'JOURNAL');
     return this.journalsService.createFromFile(userId, file);
   }
 

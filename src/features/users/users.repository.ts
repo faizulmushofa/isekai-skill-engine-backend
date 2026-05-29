@@ -10,7 +10,14 @@ export class UsersRepository {
     if (!id) return null;
     return this.prisma.user.findUnique({
       where: { id },
-    });
+      include: {
+        userGoals: {
+          include: {
+            careerGoal: true,
+          },
+        },
+      },
+    }) as any;
   }
 
   async findByEmail(email: string): Promise<User | null> {

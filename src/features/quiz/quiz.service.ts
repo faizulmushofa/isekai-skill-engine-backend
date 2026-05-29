@@ -161,7 +161,7 @@ export class QuizService {
             type: 'ESSAY' | 'ANALYTICAL';
             guideline: string;
           }>;
-        }>(aiPrompt);
+        }>({ ...aiPrompt, userId });
 
         if (aiResponse && aiResponse.questions && aiResponse.questions.length > 0) {
           const generatedQuestions = aiResponse.questions.map((q) => ({
@@ -279,7 +279,7 @@ export class QuizService {
           finalScore: number;
         }>;
         skillBreakdown: Array<{ skillNode: string; evidenceScore: number }>;
-      }>(evalPrompt);
+      }>({ ...evalPrompt, userId });
 
       // Save evaluations inside database
       for (const qEval of aiResult.questionEvaluations) {

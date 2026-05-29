@@ -24,7 +24,7 @@ export class ProviderExecutor {
     route: AiTaskRoute,
     systemPrompt: string,
     userPrompt: string,
-  ): Promise<string> {
+  ): Promise<{ text: string; usage: { promptTokens: number; completionTokens: number; totalTokens: number } }> {
     
     // 0. Anti-jailbreak: screen user input with Llama Guard
     await this.promptGuard.enforceOrThrow(userPrompt);
@@ -73,7 +73,7 @@ export class ProviderExecutor {
     route: AiTaskRoute,
     systemPrompt: string,
     userPrompt: string,
-  ): Promise<string> {
+  ): Promise<{ text: string; usage: { promptTokens: number; completionTokens: number; totalTokens: number } }> {
     const provider = this.resolveProvider(route.provider);
     const maxRetries = route.maxRetries ?? 1;
 
@@ -97,12 +97,30 @@ export class ProviderExecutor {
           });
         } catch (error) {
           lastError = error instanceof Error ? error : new Error(String(error));
+          const errorMessage = lastError.message.toLowerCase();
+
+          // Fast-fail for non-retryable errors (e.g. invalid model, invalid schema)
+          const isNonRetryable = 
+            errorMessage.includes('400') || 
+            errorMessage.includes('404') || 
+            errorMessage.includes('bad request') || 
+            errorMessage.includes('not found') ||
+            errorMessage.includes('invalid argument');
+
+          if (isNonRetryable) {
+             this.logger.error(`Non-retryable error encountered: ${lastError.message}. Aborting retries for this key.`);
+             break; // Skip remaining retries for this key
+          }
+
           this.logger.warn(
             `Attempt ${attempt}/${maxRetries} failed using key '${keyEnvVar}' for '${route.provider}' (${route.model}): ${lastError.message}`,
           );
+
           if (attempt < maxRetries) {
-            // Linear delay: 200ms, 400ms, etc.
-            await new Promise((resolve) => setTimeout(resolve, attempt * 200));
+            // Exponential backoff: 2s, 4s, 8s, 16s
+            const delayMs = Math.pow(2, attempt) * 1000;
+            this.logger.warn(`Waiting ${delayMs}ms before next attempt (Exponential Backoff)...`);
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
           }
         }
       }

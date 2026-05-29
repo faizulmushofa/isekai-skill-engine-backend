@@ -1,11 +1,21 @@
 import { z } from 'zod';
 
+const robustComplexityPreprocess = (val: unknown) => {
+  if (typeof val !== 'string') return 'beginner';
+  const lower = val.toLowerCase().trim();
+  if (['beginner', 'intermediate', 'advanced'].includes(lower)) return lower;
+  if (lower.includes('begin') || lower.includes('awal') || lower.includes('pemula')) return 'beginner';
+  if (lower.includes('inter') || lower.includes('menengah')) return 'intermediate';
+  if (lower.includes('adv') || lower.includes('mahir') || lower.includes('lanjut')) return 'advanced';
+  return 'beginner';
+};
+
 export const LearningEvidenceSchema = z.object({
   skills: z.array(
     z.object({
       name: z.string(),
       confidence: z.number().min(0).max(1),
-      complexity: z.enum(['beginner', 'intermediate', 'advanced']),
+      complexity: z.preprocess(robustComplexityPreprocess, z.enum(['beginner', 'intermediate', 'advanced'])),
       evidence: z.array(z.string()),
       reason: z.string(),
     }),
@@ -26,8 +36,9 @@ export const ProjectEvidenceSchema = z.object({
   skills: z.array(
     z.object({
       name: z.string(),
+      parentId: z.string().nullable().optional(),
       confidence: z.number().min(0).max(1),
-      complexity: z.enum(['beginner', 'intermediate', 'advanced']),
+      complexity: z.preprocess(robustComplexityPreprocess, z.enum(['beginner', 'intermediate', 'advanced'])),
       evidence: z.array(z.string()),
       reason: z.string(),
     }),
@@ -63,6 +74,10 @@ export const SkillInitSkillsExplanatorSchema = z.object({
       name: z.string(),
       description: z.string(),
       whyImportant: z.string(),
+      isSpecificOrChildSkill: z.boolean().refine((val) => val === false, {
+        message:
+          "SANGAT DILARANG: Skill ini terdeteksi sebagai sub-skill atau skill spesifik. Anda hanya boleh membuat ROOT skill yang sangat general. Hapus skill ini dan ganti dengan root skill-nya.",
+      }),
     }),
   ),
 });

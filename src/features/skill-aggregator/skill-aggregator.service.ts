@@ -13,24 +13,36 @@ export class SkillAggregatorService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Compiles and returns a Graph model of nodes and edges for the user.
-   * Represents the complete skill network structure with current progress.
+   * Helper to fetch skills associated with the user, including all their taxonomy ancestors.
+   * This ensures the graph and tree do not have broken links if a user only has a child skill.
    */
-  async getSkillGraph(userId: string): Promise<SkillGraphResponse> {
-    // 1. Fetch all skills in the taxonomy database
-    const skills = await this.prisma.skill.findMany({
-      orderBy: { name: 'asc' },
-    });
-
-    // 2. Fetch all user skill progress aggregates
+  private async getFilteredSkillsForUser(userId: string) {
     const userSkills = await this.prisma.userSkill.findMany({
       where: { userId },
     });
 
     const progressMap = new Map<string, number>();
+    const userSkillIds: string[] = [];
     for (const us of userSkills) {
       progressMap.set(us.skillId, us.progress);
+      userSkillIds.push(us.skillId);
     }
+
+    // Only fetch the skills explicitly owned by the user
+    const skills = await this.prisma.skill.findMany({
+      where: { id: { in: userSkillIds } },
+      orderBy: { name: 'asc' },
+    });
+
+    return { skills, progressMap };
+  }
+
+  /**
+   * Compiles and returns a Graph model of nodes and edges for the user.
+   * Represents the complete skill network structure with current progress.
+   */
+  async getSkillGraph(userId: string): Promise<SkillGraphResponse> {
+    const { skills, progressMap } = await this.getFilteredSkillsForUser(userId);
 
     // 3. Map nodes
     const nodes: GraphNode[] = skills.map((s) => ({
@@ -39,10 +51,12 @@ export class SkillAggregatorService {
       progress: progressMap.get(s.id) || 0.0,
     }));
 
+    const skillIdSet = new Set(skills.map(s => s.id));
+
     // 4. Map edges (parentId -> id) representing the directional taxomical hierarchy
     const edges: GraphEdge[] = [];
     for (const s of skills) {
-      if (s.parentId) {
+      if (s.parentId && skillIdSet.has(s.parentId)) {
         edges.push({
           source: s.parentId,
           target: s.id,
@@ -60,21 +74,12 @@ export class SkillAggregatorService {
    * Builds and returns a nested Hierarchical Tree JSON representation of skills for the user.
    */
   async getSkillTree(userId: string): Promise<SkillTreeResponse[]> {
-    // 1. Fetch all skills
-    const skills = await this.prisma.skill.findMany();
+    const { skills, progressMap } = await this.getFilteredSkillsForUser(userId);
 
-    // 2. Fetch all user progress aggregates
-    const userSkills = await this.prisma.userSkill.findMany({
-      where: { userId },
-    });
+    const skillIdSet = new Set(skills.map(s => s.id));
 
-    const progressMap = new Map<string, number>();
-    for (const us of userSkills) {
-      progressMap.set(us.skillId, us.progress);
-    }
-
-    // 3. Build recursive trees starting from root skills (parentId = null)
-    const rootSkills = skills.filter((s) => !s.parentId);
+    // 3. Build recursive trees starting from root skills (parentId = null or parent not owned by user)
+    const rootSkills = skills.filter((s) => !s.parentId || !skillIdSet.has(s.parentId));
     const tree: SkillTreeResponse[] = [];
 
     for (const root of rootSkills) {
@@ -112,18 +117,21 @@ export class SkillAggregatorService {
    * Returns a flat list of skills with user's progress.
    */
   async getSkillProgress(userId: string): Promise<Array<{ skillId: string; name: string; progress: number }>> {
-    const skills = await this.prisma.skill.findMany({
-      orderBy: { name: 'asc' },
-    });
-
     const userSkills = await this.prisma.userSkill.findMany({
       where: { userId },
     });
 
     const progressMap = new Map<string, number>();
+    const skillIds: string[] = [];
     for (const us of userSkills) {
       progressMap.set(us.skillId, us.progress);
+      skillIds.push(us.skillId);
     }
+
+    const skills = await this.prisma.skill.findMany({
+      where: { id: { in: skillIds } },
+      orderBy: { name: 'asc' },
+    });
 
     return skills.map((s) => ({
       skillId: s.id,
