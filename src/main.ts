@@ -35,7 +35,9 @@ async function bootstrap() {
     }),
   );
 
-  app.useStaticAssets(join(process.cwd(), 'src', 'frontend'));
+  if (process.env.NODE_ENV !== 'production') {
+    app.useStaticAssets(join(process.cwd(), 'src', 'frontend'));
+  }
 
 
   const config = new DocumentBuilder()
