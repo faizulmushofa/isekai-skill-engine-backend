@@ -1,0 +1,615 @@
+{
+	"info": {
+		"_postman_id": "a9a3b839-4d69-4fb2-8178-ee2b1fefc39d",
+		"name": "Isekai Skill Engine",
+		"description": "API collection for Isekai Skill Engine Backend",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Register",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user@example.com\",\n  \"username\": \"user123\",\n  \"password\": \"password123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/register",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"if (response.accessToken) {",
+									"    pm.environment.set(\"accessToken\", response.accessToken);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Token",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/auth/refresh",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"refresh"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/auth/logout",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"logout"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Journals",
+			"item": [
+				{
+					"name": "Create Journal",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"My First Journal\",\n  \"content\": \"Today I learned how to set up a NestJS project with Prisma.\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/journals",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"journals"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Journals",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/journals",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"journals"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Journal",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/journals/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"journals",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "your-journal-uuid-here"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Projects",
+			"item": [
+				{
+					"name": "Create Project",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"E-Commerce Backend\",\n  \"description\": \"A NestJS-based backend with Postgres database.\",\n  \"repositoryUrl\": \"https://github.com/user/e-commerce-backend\",\n  \"reportContent\": \"Successfully completed all database schema and migrations.\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/projects",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"projects"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Projects",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/projects",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"projects"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Project",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/projects/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"projects",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "your-project-uuid-here"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Quizzes",
+			"item": [
+				{
+					"name": "Start Quiz",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"topic\": \"TypeScript\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/quizzes/start",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"quizzes",
+								"start"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Handle Decision",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"topic\": \"TypeScript\",\n  \"decision\": \"YES\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/quizzes/decision",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"quizzes",
+								"decision"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Submit Answer",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"attemptId\": \"your-quiz-attempt-uuid-here\",\n  \"questionId\": \"your-question-uuid-here\",\n  \"answerText\": \"A\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/quizzes/answer",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"quizzes",
+								"answer"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Finish Quiz",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/quizzes/finish/:attemptId",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"quizzes",
+								"finish",
+								":attemptId"
+							],
+							"variable": [
+								{
+									"key": "attemptId",
+									"value": "your-quiz-attempt-uuid-here"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Quiz Simulator Tests",
+			"description": "Folder khusus untuk simulasi pengetesan alur kuis sesuai spesifikasi sistem simulator",
+			"item": [
+				{
+					"name": "Step 1 - Request Quiz (Start)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"pm.test(\"State is DECISION_REQUIRED\", function () {",
+									"    pm.expect(response.state).to.equal(\"DECISION_REQUIRED\");",
+									"    pm.expect(response.message).to.equal(\"Kamu mau test terkait topik ini untuk mendapatkan score?\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"topic\": \"javascript array\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/quizzes/start",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"quizzes",
+								"start"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 2 - Decision YES",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"pm.test(\"State is QUIZ_STARTED\", function () {",
+									"    pm.expect(response.state).to.equal(\"QUIZ_STARTED\");",
+									"});",
+									"if (response.data && response.data.attemptId) {",
+									"    pm.environment.set(\"currentAttemptId\", response.data.attemptId);",
+									"}",
+									"if (response.data && response.data.quiz && response.data.quiz.questions.length > 0) {",
+									"    pm.environment.set(\"currentQuestionId\", response.data.quiz.questions[0].id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"topic\": \"javascript array\",\n  \"decision\": \"YES\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/quizzes/decision",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"quizzes",
+								"decision"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 2 - Decision NO (Graceful Exit)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"pm.test(\"State is EXIT\", function () {",
+									"    pm.expect(response.state).to.equal(\"EXIT\");",
+									"    pm.expect(response.message).to.equal(\"Oke semangat belajar ya\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"topic\": \"javascript array\",\n  \"decision\": \"NO\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/quizzes/decision",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"quizzes",
+								"decision"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 3 - Submit Answer",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"pm.test(\"State is ANSWER_SUBMITTED\", function () {",
+									"    pm.expect(response.state).to.equal(\"ANSWER_SUBMITTED\");",
+									"    pm.expect(response.data).to.have.property(\"correct\");",
+									"    pm.expect(response.data).to.have.property(\"score\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"attemptId\": \"{{currentAttemptId}}\",\n  \"questionId\": \"{{currentQuestionId}}\",\n  \"answerText\": \"A\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/quizzes/answer",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"quizzes",
+								"answer"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Step 4 - Finish Quiz",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"pm.test(\"State is QUIZ_FINISHED\", function () {",
+									"    pm.expect(response.state).to.equal(\"QUIZ_FINISHED\");",
+									"    pm.expect(response.data).to.have.property(\"totalScore\");",
+									"    pm.expect(response.data).to.have.property(\"maxScore\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/quizzes/finish/{{currentAttemptId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"quizzes",
+								"finish",
+								"{{currentAttemptId}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{accessToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000",
+			"type": "string"
+		}
+	]
+}

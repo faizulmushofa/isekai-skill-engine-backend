@@ -4,8 +4,7 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -16,19 +15,26 @@ datasource db {
 // USERS
 // =========================
 model User {
-  id           String        @id @default(uuid()) @db.Uuid
-  email        String        @unique @db.VarChar(255)
-  username     String        @unique @db.VarChar(100)
-  passwordHash String        @map("password_hash") @db.VarChar(255)
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamp
-  updatedAt    DateTime?     @map("updated_at") @db.Timestamp
+  id               String        @id @default(uuid()) @db.Uuid
+  email            String        @unique @db.VarChar(255)
+  username         String        @unique @db.VarChar(100)
+  passwordHash     String        @map("password_hash") @db.VarChar(255)
+  refreshTokenHash String?       @map("refresh_token_hash") @db.VarChar(255)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamp
+  updatedAt        DateTime?     @map("updated_at") @db.Timestamp
   
-  userGoals    UserGoal[]
-  journals     Journal[]
-  projects     Project[]
-  quizAttempts QuizAttempt[]
-  skillEvents  SkillEvent[]
-  userSkills   UserSkill[]
+  isEmailVerified  Boolean       @default(false) @map("is_email_verified")
+  otpCode          String?       @map("otp_code") @db.VarChar(6)
+  otpExpiresAt     DateTime?     @map("otp_expires_at") @db.Timestamp
+  
+  userGoals        UserGoal[]
+  journals         Journal[]
+  projects         Project[]
+  quizAttempts     QuizAttempt[]
+  skillEvents      SkillEvent[]
+  userSkills       UserSkill[]
+  extractionCaches ExtractionCache[]
+  userActionQuotas UserActionQuota[]
 
   @@map("users")
 }
@@ -125,6 +131,7 @@ model Project {
   description   String?   @db.Text
   repositoryUrl String?   @map("repository_url") @db.VarChar(500)
   reportContent String?   @map("report_content") @db.Text
+  latestAnalysis Json?    @map("latest_analysis") @db.Json
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp
   updatedAt     DateTime? @map("updated_at") @db.Timestamp
 
@@ -211,15 +218,20 @@ enum SourceType {
 }
 
 model SkillEvent {
-  id           String     @id @default(uuid()) @db.Uuid
-  userId       String     @map("user_id") @db.Uuid
-  skillId      String     @map("skill_id") @db.Uuid
-  sourceType   SourceType @map("source_type")
-  sourceId     String     @map("source_id") @db.Uuid
-  contribution Int
-  reason       String?    @db.Text
-  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamp
-  updatedAt    DateTime?  @map("updated_at") @db.Timestamp
+  id            String     @id @default(uuid()) @db.Uuid
+  userId        String     @map("user_id") @db.Uuid
+  skillId       String     @map("skill_id") @db.Uuid
+  sourceType    SourceType @map("source_type")
+  sourceId      String     @map("source_id") @db.Uuid
+  rawScore      Float      @map("raw_score")
+  weightedScore Float      @map("weighted_score")
+  contribution  Float      
+  oldProgress   Float      @map("old_progress")
+  newProgress   Float      @map("new_progress")
+  reason        String?    @db.Text
+  metadata      Json?      @map("metadata")
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamp
+  updatedAt     DateTime?  @map("updated_at") @db.Timestamp
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
@@ -234,7 +246,7 @@ model UserSkill {
   id        String    @id @default(uuid()) @db.Uuid
   userId    String    @map("user_id") @db.Uuid
   skillId   String    @map("skill_id") @db.Uuid
-  progress  Int       @default(0)
+  progress  Float     @default(0.0)
   updatedAt DateTime? @map("updated_at") @db.Timestamp
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -243,3 +255,110 @@ model UserSkill {
   @@unique([userId, skillId])
   @@map("user_skills")
 }
+
+// =========================
+// DETERMINISTIC EXTRACTION RULES
+// =========================
+model DeterministicRule {
+  id                 String   @id @default(uuid()) @db.Uuid
+  fileNamePattern    String?  @map("file_name_pattern") @db.VarChar(255)
+  fileContentPattern String?  @map("file_content_pattern") @db.VarChar(255)
+  detectedLanguage   String?  @map("detected_language") @db.VarChar(100)
+  detectedSkill      String?  @map("detected_skill") @db.VarChar(100)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamp
+
+  @@map("deterministic_rules")
+}
+
+// =========================
+// EXTRACTION CACHE
+// =========================
+model ExtractionCache {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  repoUrl         String   @map("repo_url") @db.VarChar(500)
+  commitHash      String?  @map("commit_hash") @db.VarChar(255)
+  extractedSkills Json     @map("extracted_skills")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // A user can only have one cache entry per repo + commit hash combination
+  @@unique([userId, repoUrl, commitHash])
+  @@map("extraction_caches")
+}
+
+// =========================
+// INFRASTRUCTURE & METRICS
+// =========================
+model DailyTokenUsage {
+  id               String   @id @default(uuid()) @db.Uuid
+  date             DateTime @db.Date // Store just the date (YYYY-MM-DD)
+  provider         String   @db.VarChar(50) // "gemini" or "groq"
+  model            String   @db.VarChar(200) @default("unknown")
+  taskType         String   @db.VarChar(100) @default("UNKNOWN_TASK")
+  userName         String   @db.VarChar(100) @default("SYSTEM")
+  totalTokens      Int      @default(0)
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  updatedAt        DateTime @default(now()) @map("updated_at") @db.Timestamp
+
+  @@unique([date, provider, model, taskType, userName])
+  @@map("daily_token_usages")
+}
+
+// =========================
+// AI USER BLOCKING
+// =========================
+model AiUserBlock {
+  id        String   @id @default(uuid()) @db.Uuid
+  userName  String   @map("user_name") @db.VarChar(100)
+  taskType  String   @map("task_type") @db.VarChar(100) // Menyimpan jenis AI Task yang diblokir (atau "ALL")
+  reason    String?  @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp
+
+  @@unique([userName, taskType])
+  @@map("ai_user_blocks")
+}
+
+// =========================
+// AI CONFIGURATION (DYNAMIC ROUTING)
+// =========================
+model AiTaskConfig {
+  id               String   @id @default(uuid()) @db.Uuid
+  taskType         String   @unique @map("task_type") @db.VarChar(100)
+  provider         String   @db.VarChar(50)
+  model            String   @db.VarChar(200)
+  temperature      Float    @default(0.5)
+  fallbackProvider String?  @map("fallback_provider") @db.VarChar(50)
+  fallbackModel    String?  @map("fallback_model") @db.VarChar(200)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp
+
+  @@map("ai_task_configs")
+}
+
+// =========================
+// AI ACTION QUOTAS
+// =========================
+model SystemQuotaConfig {
+  id           String   @id @default(uuid()) @db.Uuid
+  actionType   String   @unique @map("action_type") @db.VarChar(50) 
+  maxLimit     Int      @map("max_limit")
+  resetPeriodH Int      @map("reset_period_hours") // e.g., 72 hours for projects, 24 for daily limits
+  
+  @@map("system_quota_configs")
+}
+
+model UserActionQuota {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  actionType   String   @map("action_type") @db.VarChar(50) 
+  windowStart  DateTime @default(now()) @map("window_start") @db.Timestamp
+  usageCount   Int      @default(1) @map("usage_count")
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, actionType])
+  @@map("user_action_quotas")
+}
+

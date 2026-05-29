@@ -18,6 +18,8 @@ lerna-debug.log*
 # Tests
 /coverage
 /.nyc_output
+/src/infrastructure/ai/test/test-live-gemini.ts
+/src/frontend/
 
 # IDEs and editors
 /.idea
@@ -57,3 +59,9 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /generated/prisma
 /shema.sql
+
+# Frontend static folder
+/src/frontend
+
+/data/
+
