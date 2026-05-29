@@ -20,50 +20,9 @@ async function main() {
   const prisma = new PrismaClient({ adapter });
 
   try {
-    const saltRounds = 10;
-    const passwordHash = await bcrypt.hash('password', saltRounds);
+    // Tidak ada data dummy yang di-seed (Dikosongkan sesuai permintaan)
+    console.log('✅ Seed bypassed: No dummy data inserted.');
 
-    const testUsers = [
-      {
-        email: 'agus@example.com',
-        username: 'agus',
-        passwordHash,
-      },
-      {
-        email: 'rani@example.com',
-        username: 'rani',
-        passwordHash,
-      },
-      {
-        email: 'dodi@example.com',
-        username: 'dodi',
-        passwordHash,
-      },
-    ];
-
-    for (const u of testUsers) {
-      const existingUser = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { email: u.email },
-            { username: u.username },
-          ],
-        },
-      });
-
-      if (existingUser) {
-        console.log(`⚠️ User with email ${u.email} or username ${u.username} already exists, skipping...`);
-      } else {
-        const created = await prisma.user.create({
-          data: {
-            email: u.email,
-            username: u.username,
-            passwordHash: u.passwordHash,
-          },
-        });
-        console.log(`✅ Created user: ${created.username} (${created.email})`);
-      }
-    }
 
     console.log('🌿 Seeding completed successfully!');
   } catch (error) {
