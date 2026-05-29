@@ -179,8 +179,8 @@ export class InfraDashboardController {
   @UseGuards(InfraKeyGuard)
   @ApiOperation({ summary: 'Update AI task routing config' })
   @ApiQuery({ name: 'key', required: true, description: 'Infra Secret Key' })
-  async updateRoutingConfig(@Body() body: { taskType: AiTaskType; provider: 'gemini' | 'groq'; model: string; temperature: number; fallbackProvider?: 'gemini' | 'groq'; fallbackModel?: string; maxDailyTokens?: number }) {
-    await this.dynamicRouting.updateRouteOverride(body.taskType, body.provider, body.model, body.temperature, body.fallbackProvider, body.fallbackModel, body.maxDailyTokens);
+  async updateRoutingConfig(@Body() body: { taskType: AiTaskType; provider: 'gemini' | 'groq'; model: string; temperature: number; fallbackProvider?: 'gemini' | 'groq'; fallbackModel?: string; maxDailyTokens?: number; maxMonthlyTokens?: number }) {
+    await this.dynamicRouting.updateRouteOverride(body.taskType, body.provider, body.model, body.temperature, body.fallbackProvider, body.fallbackModel, body.maxDailyTokens, body.maxMonthlyTokens);
     return { success: true };
   }
 

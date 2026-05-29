@@ -29,6 +29,7 @@ export class DynamicRoutingService implements OnModuleInit {
           model: config.model,
           temperature: config.temperature,
           maxDailyTokens: config.maxDailyTokens,
+          maxMonthlyTokens: config.maxMonthlyTokens,
         };
 
         if (config.fallbackProvider && config.fallbackModel) {
@@ -98,7 +99,8 @@ export class DynamicRoutingService implements OnModuleInit {
     temperature: number,
     fallbackProvider?: 'gemini' | 'groq',
     fallbackModel?: string,
-    maxDailyTokens?: number
+    maxDailyTokens?: number,
+    maxMonthlyTokens?: number
   ) {
     // Validate if the taskType exists in base config
     if (!AI_TASK_ROUTES[taskType]) {
@@ -106,15 +108,16 @@ export class DynamicRoutingService implements OnModuleInit {
     }
 
     const maxTokens = maxDailyTokens !== undefined ? maxDailyTokens : 100000;
+    const maxMonthly = maxMonthlyTokens !== undefined ? maxMonthlyTokens : 3000000;
 
     await this.prisma.aiTaskConfig.upsert({
       where: { taskType },
-      update: { provider, model, temperature, fallbackProvider, fallbackModel, maxDailyTokens: maxTokens },
-      create: { taskType, provider, model, temperature, fallbackProvider, fallbackModel, maxDailyTokens: maxTokens },
+      update: { provider, model, temperature, fallbackProvider, fallbackModel, maxDailyTokens: maxTokens, maxMonthlyTokens: maxMonthly },
+      create: { taskType, provider, model, temperature, fallbackProvider, fallbackModel, maxDailyTokens: maxTokens, maxMonthlyTokens: maxMonthly },
     });
 
     // Update memory
-    const override: Partial<AiTaskRoute> = { provider, model, temperature, maxDailyTokens: maxTokens };
+    const override: Partial<AiTaskRoute> = { provider, model, temperature, maxDailyTokens: maxTokens, maxMonthlyTokens: maxMonthly };
     if (fallbackProvider && fallbackModel) {
       override.fallbacks = [
         {

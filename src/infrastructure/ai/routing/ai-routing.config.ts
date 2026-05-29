@@ -30,6 +30,7 @@ export interface AiTaskRoute {
   fallbacks?: AiFallbackRoute[];
   maxRetries?: number;
   maxDailyTokens?: number;
+  maxMonthlyTokens?: number;
 }
 
 export const AI_TASK_ROUTES: Record<AiTaskType, AiTaskRoute> = {

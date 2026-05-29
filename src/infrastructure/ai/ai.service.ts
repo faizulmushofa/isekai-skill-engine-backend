@@ -79,6 +79,31 @@ export class AiService {
       }
     }
 
+    // 3. Check Monthly Token Limit Guard
+    if (route.maxMonthlyTokens && route.maxMonthlyTokens > 0) {
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const usageThisMonth = await this.prisma.dailyTokenUsage.aggregate({
+        _sum: {
+          totalTokens: true,
+        },
+        where: {
+          date: { gte: firstDayOfMonth },
+          provider: route.provider,
+          model: route.model,
+          taskType: request.taskType,
+        },
+      });
+
+      const totalUsedThisMonth = usageThisMonth._sum.totalTokens ?? 0;
+      if (totalUsedThisMonth >= route.maxMonthlyTokens) {
+        throw new ForbiddenException(
+          `Token bulanan untuk model '${route.model}' pada tugas '${request.taskType}' telah habis (${totalUsedThisMonth}/${route.maxMonthlyTokens} token). Silakan coba lagi bulan depan.`,
+        );
+      }
+    }
+
     const { responseText, route: resolvedRoute, usage } = await this.taskRouter.routeAndExecute(
       request.taskType,
       request.systemPrompt,
