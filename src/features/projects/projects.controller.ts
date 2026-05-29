@@ -16,13 +16,17 @@ import { OrchestrateProjectDto } from './dto/orchestrate-project.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 import { Project } from '@prisma/client';
+import { QuotaService } from '../../infrastructure/quota/quota.service';
 
 @ApiTags('Projects')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard)
 @Controller('projects')
 export class ProjectsController {
-  constructor(private readonly projectsService: ProjectsService) {}
+  constructor(
+    private readonly projectsService: ProjectsService,
+    private readonly quotaService: QuotaService,
+  ) {}
 
   @Post()
   async create(
@@ -58,6 +62,7 @@ export class ProjectsController {
     @Body() dto: OrchestrateProjectDto,
     @UploadedFile() file?: { buffer: Buffer; originalname: string; mimetype: string },
   ): Promise<any> {
+    await this.quotaService.checkAndConsumeQuota(userId, 'PROJECT');
     return this.projectsService.orchestrateProjectSkills(
       userId,
       projectId,

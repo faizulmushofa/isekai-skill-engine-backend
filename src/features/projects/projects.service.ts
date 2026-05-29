@@ -324,6 +324,7 @@ export class ProjectsService {
 
         generatedEvents.push({
           skillId,
+          skillName: skill.name,
           sourceId: projectId,
           rawScore: dbEvent.rawScore,
           weightedScore: dbEvent.weightedScore,
@@ -357,6 +358,11 @@ export class ProjectsService {
          }
        });
     }
+    // Save latest analysis results to Project directly for frontend access
+    await this.prisma.project.update({
+      where: { id: projectId },
+      data: { latestAnalysis: generatedEvents },
+    });
 
     this.logger.log(`[Project Extraction Background] Orchestration completed. Extracted ${generatedEvents.length} skill events.`);
   }

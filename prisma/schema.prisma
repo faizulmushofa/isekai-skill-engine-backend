@@ -23,6 +23,10 @@ model User {
   createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamp
   updatedAt        DateTime?     @map("updated_at") @db.Timestamp
   
+  isEmailVerified  Boolean       @default(false) @map("is_email_verified")
+  otpCode          String?       @map("otp_code") @db.VarChar(6)
+  otpExpiresAt     DateTime?     @map("otp_expires_at") @db.Timestamp
+  
   userGoals        UserGoal[]
   journals         Journal[]
   projects         Project[]
@@ -30,6 +34,7 @@ model User {
   skillEvents      SkillEvent[]
   userSkills       UserSkill[]
   extractionCaches ExtractionCache[]
+  userActionQuotas UserActionQuota[]
 
   @@map("users")
 }
@@ -126,6 +131,7 @@ model Project {
   description   String?   @db.Text
   repositoryUrl String?   @map("repository_url") @db.VarChar(500)
   reportContent String?   @map("report_content") @db.Text
+  latestAnalysis Json?    @map("latest_analysis") @db.Json
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp
   updatedAt     DateTime? @map("updated_at") @db.Timestamp
 
@@ -330,3 +336,29 @@ model AiTaskConfig {
 
   @@map("ai_task_configs")
 }
+
+// =========================
+// AI ACTION QUOTAS
+// =========================
+model SystemQuotaConfig {
+  id           String   @id @default(uuid()) @db.Uuid
+  actionType   String   @unique @map("action_type") @db.VarChar(50) 
+  maxLimit     Int      @map("max_limit")
+  resetPeriodH Int      @map("reset_period_hours") // e.g., 72 hours for projects, 24 for daily limits
+  
+  @@map("system_quota_configs")
+}
+
+model UserActionQuota {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  actionType   String   @map("action_type") @db.VarChar(50) 
+  windowStart  DateTime @default(now()) @map("window_start") @db.Timestamp
+  usageCount   Int      @default(1) @map("usage_count")
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, actionType])
+  @@map("user_action_quotas")
+}
+

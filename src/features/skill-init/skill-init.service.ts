@@ -218,7 +218,10 @@ export class SkillInitService {
   ): Promise<SkillInitSelectCareerResponse> {
     const session = this.getActiveSession(userId);
 
-    if (session.step !== 'CAREER_SELECTION') {
+    if (
+      session.step !== 'CAREER_SELECTION' &&
+      session.step !== 'SKILLS_GENERATION'
+    ) {
       throw new BadRequestException(
         'Belum saatnya memilih karier. Selesaikan proses discovery terlebih dahulu.',
       );

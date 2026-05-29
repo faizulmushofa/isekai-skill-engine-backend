@@ -36,6 +36,7 @@ export const ProjectEvidenceSchema = z.object({
   skills: z.array(
     z.object({
       name: z.string(),
+      parentId: z.string().nullable().optional(),
       confidence: z.number().min(0).max(1),
       complexity: z.preprocess(robustComplexityPreprocess, z.enum(['beginner', 'intermediate', 'advanced'])),
       evidence: z.array(z.string()),
@@ -73,6 +74,10 @@ export const SkillInitSkillsExplanatorSchema = z.object({
       name: z.string(),
       description: z.string(),
       whyImportant: z.string(),
+      isSpecificOrChildSkill: z.boolean().refine((val) => val === false, {
+        message:
+          "SANGAT DILARANG: Skill ini terdeteksi sebagai sub-skill atau skill spesifik. Anda hanya boleh membuat ROOT skill yang sangat general. Hapus skill ini dan ganti dengan root skill-nya.",
+      }),
     }),
   ),
 });

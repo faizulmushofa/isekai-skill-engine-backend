@@ -19,14 +19,18 @@ import { GitProcessingModule } from './infrastructure/git-processing/git-process
 import { QueueModule } from './infrastructure/queue/queue.module';
 import { TokenTrackerModule } from './infrastructure/token-management/token-tracker.module';
 import { InfraDashboardModule } from './infrastructure/infra-dashboard/infra-dashboard.module';
+import { MailModule } from './features/mail/mail.module';
+import { QuotaModule } from './infrastructure/quota/quota.module';
 
 @Module({
   imports: [
+    QuotaModule,
     ThrottlerModule.forRoot([{
       ttl: 1000,
       limit: 50,
     }]),
     ConfigModule,
+    MailModule,
     AiModule,
     ExtractionModule,
     GitProcessingModule,

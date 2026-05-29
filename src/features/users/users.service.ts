@@ -7,7 +7,7 @@ import {
 import { UsersRepository } from './users.repository';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserMapper, UserResponse } from './mapper/user.mapper';
-import { User } from '@prisma/client';
+import { User, Prisma } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
@@ -41,6 +41,8 @@ export class UsersService {
     email: string;
     username: string;
     passwordHash: string;
+    otpCode?: string;
+    otpExpiresAt?: Date;
   }): Promise<UserResponse> {
     // Validasi keunikan email
     const existingEmail = await this.usersRepository.findByEmail(data.email);
@@ -62,6 +64,8 @@ export class UsersService {
       email: data.email,
       username: data.username,
       passwordHash: data.passwordHash,
+      otpCode: data.otpCode,
+      otpExpiresAt: data.otpExpiresAt,
     });
 
     return UserMapper.toResponse(user);
@@ -74,6 +78,13 @@ export class UsersService {
     await this.usersRepository.update(userId, {
       refreshTokenHash: hash,
     });
+  }
+
+  async updateSystemUser(
+    userId: string,
+    data: Prisma.UserUpdateInput,
+  ): Promise<void> {
+    await this.usersRepository.update(userId, data);
   }
 
   async updateUser(

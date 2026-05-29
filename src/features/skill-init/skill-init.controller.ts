@@ -16,8 +16,10 @@ import {
   ApiProperty,
 } from '@nestjs/swagger';
 import { SkillInitService } from './skill-init.service';
+import { QuotaService } from '../../infrastructure/quota/quota.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
+import { IsString, IsNotEmpty, IsNumber, Min, Max } from 'class-validator';
 import {
   SkillInitStartResponse,
   SkillInitAnswerResponse,
@@ -29,7 +31,8 @@ export class StartSkillInitDto {
     example: 'saya ingin menjadi backend engineer',
     description: 'Pernyataan karier atau minat dari pengguna. Bisa spesifik, samar, atau kosong.',
   })
-  userInput: string;
+  @IsString()
+  userInput!: string;
 }
 
 export class AnswerSkillInitDto {
@@ -37,7 +40,10 @@ export class AnswerSkillInitDto {
     example: 4,
     description: 'Skor jawaban pengguna (1-4). 4 = Sangat Suka, 3 = Suka, 2 = Netral, 1 = Tidak Suka.',
   })
-  answer: number;
+  @IsNumber()
+  @Min(1)
+  @Max(4)
+  answer!: number;
 }
 
 export class SelectCareerDto {
@@ -45,7 +51,9 @@ export class SelectCareerDto {
     example: 'Backend Engineer',
     description: 'Nama karier yang dipilih dari opsi yang disajikan sistem.',
   })
-  careerName: string;
+  @IsString()
+  @IsNotEmpty()
+  careerName!: string;
 }
 
 @ApiTags('Skill-Init')
@@ -53,7 +61,10 @@ export class SelectCareerDto {
 @UseGuards(JwtAuthGuard)
 @Controller('skill-init')
 export class SkillInitController {
-  constructor(private readonly skillInitService: SkillInitService) {}
+  constructor(
+    private readonly skillInitService: SkillInitService,
+    private readonly quotaService: QuotaService,
+  ) {}
 
   /**
    * POST /skill-init/start
@@ -73,6 +84,7 @@ export class SkillInitController {
     @CurrentUser() userId: string,
     @Body() dto: StartSkillInitDto,
   ): Promise<SkillInitStartResponse> {
+    await this.quotaService.checkAndConsumeQuota(userId, 'SKILL_INIT');
     return this.skillInitService.start(userId, dto.userInput);
   }
 

@@ -19,6 +19,8 @@ import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { ResendOtpDto } from './dto/resend-otp.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('Auth')
@@ -45,6 +47,23 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string; accessToken: string }> {
     return this.authService.login(payload, res);
+  }
+
+  @Post('verify-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verifikasi email menggunakan OTP' })
+  @ApiResponse({ status: 200, description: 'Email berhasil diverifikasi' })
+  @ApiResponse({ status: 400, description: 'OTP tidak valid atau kedaluwarsa' })
+  async verifyOtp(@Body() payload: VerifyOtpDto): Promise<{ message: string }> {
+    return this.authService.verifyOtp(payload.email, payload.otpCode);
+  }
+
+  @Post('resend-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Kirim ulang OTP ke email' })
+  @ApiResponse({ status: 200, description: 'OTP berhasil dikirim ulang' })
+  async resendOtp(@Body() payload: ResendOtpDto): Promise<{ message: string }> {
+    return this.authService.resendOtp(payload.email);
   }
 
   @Post('refresh')

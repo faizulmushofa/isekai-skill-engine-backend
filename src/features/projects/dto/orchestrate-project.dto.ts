@@ -1,4 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsOptional, IsIn, IsBoolean } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class OrchestrateProjectDto {
   @ApiProperty({
@@ -6,6 +8,8 @@ export class OrchestrateProjectDto {
     example: 'https://github.com/hero/isekai-backend',
     description: 'URL Git repositori (opsional, jika ingin meng-override data DB)',
   })
+  @IsString()
+  @IsOptional()
   repositoryUrl?: string;
 
   @ApiProperty({
@@ -13,6 +17,8 @@ export class OrchestrateProjectDto {
     example: 'abc1234',
     description: 'Hash commit baru untuk dibandingkan (jika mode COMMIT)',
   })
+  @IsString()
+  @IsOptional()
   commitHash?: string;
 
   @ApiProperty({
@@ -21,6 +27,8 @@ export class OrchestrateProjectDto {
     enum: ['INIT', 'COMMIT'],
     description: 'Petunjuk mode analisis',
   })
+  @IsOptional()
+  @IsIn(['INIT', 'COMMIT'])
   modeHint?: 'INIT' | 'COMMIT';
 
   @ApiProperty({
@@ -28,5 +36,8 @@ export class OrchestrateProjectDto {
     example: false,
     description: 'Menandakan jika analisis sebelumnya sudah pernah dijalankan',
   })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
   previousAnalysisExists?: boolean;
 }

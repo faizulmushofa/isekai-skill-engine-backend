@@ -82,6 +82,47 @@ export class InfraDashboardController {
     return { success: true };
   }
 
+  // --- QUOTA ENDPOINTS ---
+  @Get('quotas/configs')
+  @UseGuards(InfraKeyGuard)
+  @ApiOperation({ summary: 'Get System Quota Configs' })
+  @ApiQuery({ name: 'key', required: true, description: 'Infra Secret Key' })
+  async getQuotaConfigs() {
+    return this.prisma.systemQuotaConfig.findMany();
+  }
+
+  @Post('quotas/configs')
+  @UseGuards(InfraKeyGuard)
+  @ApiOperation({ summary: 'Update System Quota Config' })
+  @ApiQuery({ name: 'key', required: true, description: 'Infra Secret Key' })
+  async updateQuotaConfig(@Body() body: { actionType: string; maxLimit: number; resetPeriodH: number }) {
+    return this.prisma.systemQuotaConfig.upsert({
+      where: { actionType: body.actionType },
+      update: { maxLimit: body.maxLimit, resetPeriodH: body.resetPeriodH },
+      create: { actionType: body.actionType, maxLimit: body.maxLimit, resetPeriodH: body.resetPeriodH },
+    });
+  }
+
+  @Get('quotas/users')
+  @UseGuards(InfraKeyGuard)
+  @ApiOperation({ summary: 'Get all user quotas usage' })
+  @ApiQuery({ name: 'key', required: true, description: 'Infra Secret Key' })
+  async getUserQuotas() {
+    return this.prisma.userActionQuota.findMany({
+      include: { user: { select: { username: true, email: true } } },
+      orderBy: { windowStart: 'desc' },
+    });
+  }
+
+  @Delete('quotas/users/:id')
+  @UseGuards(InfraKeyGuard)
+  @ApiOperation({ summary: 'Reset a user quota' })
+  @ApiQuery({ name: 'key', required: true, description: 'Infra Secret Key' })
+  async resetUserQuota(@Param('id') id: string) {
+    await this.prisma.userActionQuota.delete({ where: { id } });
+    return { success: true };
+  }
+
   @Get('dashboard')
   @ApiOperation({ summary: 'HTML Dashboard for Infra metrics' })
   getDashboard() {
@@ -130,6 +171,7 @@ export class InfraDashboardController {
             <button onclick="switchTab('tokens')" id="tab-tokens" class="pb-2 text-slate-400 hover:text-slate-200 font-semibold tab-active">Token Usage</button>
             <button onclick="switchTab('routing')" id="tab-routing" class="pb-2 text-slate-400 hover:text-slate-200 font-semibold">AI Routing & Models</button>
             <button onclick="switchTab('blocks')" id="tab-blocks" class="pb-2 text-slate-400 hover:text-slate-200 font-semibold">User Access Control</button>
+            <button onclick="switchTab('quotas')" id="tab-quotas" class="pb-2 text-slate-400 hover:text-slate-200 font-semibold">User Quotas</button>
         </div>
 
         <!-- Token Usage Tab -->
@@ -246,6 +288,30 @@ export class InfraDashboardController {
             </div>
         </div>
 
+        <!-- User Quotas Tab -->
+        <div id="view-quotas" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-semibold border-b border-slate-700 pb-2">User AI Action Quotas</h2>
+                <button onclick="fetchQuotas()" class="px-3 py-1 bg-sky-600 hover:bg-sky-500 rounded text-xs font-semibold transition-colors">Refresh Quotas</button>
+            </div>
+            <div class="card overflow-hidden p-0">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-800 text-slate-300">
+                        <tr>
+                            <th class="px-4 py-3">User</th>
+                            <th class="px-4 py-3">Action Type</th>
+                            <th class="px-4 py-3">Usage Count</th>
+                            <th class="px-4 py-3">Window Start</th>
+                            <th class="px-4 py-3">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="quotas-table" class="divide-y divide-slate-700">
+                        <tr><td colspan="5" class="px-4 py-3 text-center text-slate-400">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 
     <!-- Edit Modal Routing -->
@@ -344,10 +410,12 @@ export class InfraDashboardController {
             document.getElementById('tab-tokens').classList.remove('tab-active');
             document.getElementById('tab-routing').classList.remove('tab-active');
             document.getElementById('tab-blocks').classList.remove('tab-active');
+            document.getElementById('tab-quotas').classList.remove('tab-active');
             
             document.getElementById('view-tokens').classList.add('hidden');
             document.getElementById('view-routing').classList.add('hidden');
             document.getElementById('view-blocks').classList.add('hidden');
+            document.getElementById('view-quotas').classList.add('hidden');
 
             document.getElementById('tab-' + tab).classList.add('tab-active');
             document.getElementById('view-' + tab).classList.remove('hidden');
@@ -361,6 +429,8 @@ export class InfraDashboardController {
                 fetchRouting();
             } else if (tab === 'blocks') {
                 fetchBlocks();
+            } else if (tab === 'quotas') {
+                fetchQuotas();
             }
         }
 
@@ -514,6 +584,58 @@ export class InfraDashboardController {
                 if (res.ok) fetchBlocks();
             } catch(e) {
                 alert('Error');
+            }
+        }
+
+        async function fetchQuotas() {
+            const key = getStoredKey();
+            if (!key) return;
+
+            try {
+                const res = await fetch('/infra/quotas/users?key=' + encodeURIComponent(key));
+                if (res.status === 401 || res.status === 403) return logout();
+                const quotas = await res.json();
+                
+                const container = document.getElementById('quotas-table');
+                container.innerHTML = '';
+                
+                if (quotas.length === 0) {
+                     container.innerHTML = '<tr><td colspan="5" class="px-4 py-3 text-center text-slate-400">No quota usage data found.</td></tr>';
+                } else {
+                    quotas.forEach(q => {
+                        const dateStr = new Date(q.windowStart).toLocaleString();
+                        const userName = q.user?.username || q.user?.email || 'Unknown';
+                        container.innerHTML += \`
+                            <tr class="hover:bg-slate-800/50 transition-colors">
+                                <td class="px-4 py-3 font-bold text-slate-200">\${userName}</td>
+                                <td class="px-4 py-3">
+                                    <span class="bg-indigo-900/50 text-indigo-200 px-2 py-1 rounded text-xs border border-indigo-800">\${q.actionType}</span>
+                                </td>
+                                <td class="px-4 py-3 font-semibold text-sky-400">\${q.usageCount}</td>
+                                <td class="px-4 py-3 text-xs text-slate-500">\${dateStr}</td>
+                                <td class="px-4 py-3">
+                                    <button onclick="resetUserQuota('\${q.id}')" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-white transition-colors">Reset</button>
+                                </td>
+                            </tr>
+                        \`;
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to fetch quotas', err);
+            }
+        }
+
+        async function resetUserQuota(id) {
+            const key = getStoredKey();
+            if (!confirm('Are you sure you want to reset this user\\'s quota for this action?')) return;
+            
+            try {
+                const res = await fetch('/infra/quotas/users/' + id + '?key=' + encodeURIComponent(key), {
+                    method: 'DELETE'
+                });
+                if (res.ok) fetchQuotas();
+            } catch(e) {
+                alert('Error resetting quota');
             }
         }
 

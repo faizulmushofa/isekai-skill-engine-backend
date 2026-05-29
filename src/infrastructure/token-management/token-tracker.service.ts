@@ -12,35 +12,16 @@ export interface TokenUsageStats {
 }
 
 @Injectable()
-export class TokenTrackerService implements OnModuleInit, OnModuleDestroy {
+export class TokenTrackerService {
   private readonly logger = new Logger(TokenTrackerService.name);
-  
-  // In-memory counter (Key: provider|model|taskType|userName)
-  private memoryStats: Map<string, TokenUsageStats> = new Map();
-  private flushInterval: NodeJS.Timeout;
 
   constructor(private readonly prisma: PrismaService) {}
 
-  onModuleInit() {
-    // Flush to DB every 5 minutes
-    this.flushInterval = setInterval(() => {
-      this.flushToDatabase().catch((err) => 
-        this.logger.error(`Error flushing tokens: ${err.message}`)
-      );
-    }, 5 * 60 * 1000);
-  }
-
-  onModuleDestroy() {
-    if (this.flushInterval) {
-      clearInterval(this.flushInterval);
-    }
-    this.flushToDatabase(); // Flush before exit
-  }
-
   /**
-   * Tracks token usage in memory.
+   * Tracks token usage by asynchronously upserting to the database.
+   * We do not await this in the main execution path to avoid blocking the user response.
    */
-  trackUsage(
+  async trackUsage(
     provider: string,
     model: string,
     taskType: string,
@@ -49,90 +30,50 @@ export class TokenTrackerService implements OnModuleInit, OnModuleDestroy {
   ) {
     if (!provider || !model || !taskType) return;
 
-    const key = `${provider}|${model}|${taskType}|${userName}`;
+    try {
+      // Get today's date (midnight)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-    const current = this.memoryStats.get(key) || {
-      provider,
-      model,
-      taskType,
-      userName,
-      promptTokens: 0,
-      completionTokens: 0,
-      totalTokens: 0,
-    };
-
-    current.promptTokens += usage.promptTokens;
-    current.completionTokens += usage.completionTokens;
-    current.totalTokens += usage.totalTokens;
-
-    this.memoryStats.set(key, current);
+      await this.prisma.dailyTokenUsage.upsert({
+        where: {
+          date_provider_model_taskType_userName: {
+            date: today,
+            provider,
+            model,
+            taskType,
+            userName,
+          }
+        },
+        update: {
+          promptTokens: { increment: usage.promptTokens },
+          completionTokens: { increment: usage.completionTokens },
+          totalTokens: { increment: usage.totalTokens },
+          updatedAt: new Date(),
+        },
+        create: {
+          date: today,
+          provider,
+          model,
+          taskType,
+          userName,
+          promptTokens: usage.promptTokens,
+          completionTokens: usage.completionTokens,
+          totalTokens: usage.totalTokens,
+        }
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to track token usage for ${provider}|${model}|${taskType}|${userName}: ${error.message}`
+      );
+    }
   }
 
   /**
-   * Returns current in-memory stats.
+   * Returns current in-memory stats (now deprecated, returns empty as we write directly to DB).
    */
   getInMemoryStats(): Record<string, TokenUsageStats> {
-    const stats: Record<string, TokenUsageStats> = {};
-    for (const [key, value] of this.memoryStats.entries()) {
-      stats[key] = { ...value };
-    }
-    return stats;
-  }
-
-  /**
-   * Flushes in-memory stats to the database, aggregating by today's date.
-   */
-  async flushToDatabase() {
-    if (this.memoryStats.size === 0) return;
-
-    // Get today's date (midnight)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    for (const [key, stats] of this.memoryStats.entries()) {
-      try {
-        await this.prisma.dailyTokenUsage.upsert({
-          where: {
-            date_provider_model_taskType_userName: {
-              date: today,
-              provider: stats.provider,
-              model: stats.model,
-              taskType: stats.taskType,
-              userName: stats.userName,
-            }
-          },
-          update: {
-            promptTokens: { increment: stats.promptTokens },
-            completionTokens: { increment: stats.completionTokens },
-            totalTokens: { increment: stats.totalTokens },
-            updatedAt: new Date(),
-          },
-          create: {
-            date: today,
-            provider: stats.provider,
-            model: stats.model,
-            taskType: stats.taskType,
-            userName: stats.userName,
-            promptTokens: stats.promptTokens,
-            completionTokens: stats.completionTokens,
-            totalTokens: stats.totalTokens,
-          }
-        });
-
-        // Reset memory for this composite key after successful flush
-        this.memoryStats.set(key, {
-          provider: stats.provider,
-          model: stats.model,
-          taskType: stats.taskType,
-          userName: stats.userName,
-          promptTokens: 0,
-          completionTokens: 0,
-          totalTokens: 0,
-        });
-      } catch (err) {
-        this.logger.error(`Failed to flush tokens for ${key}: ${err.message}`);
-      }
-    }
+    return {};
   }
 
   /**

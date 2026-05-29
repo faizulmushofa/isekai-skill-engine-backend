@@ -35,6 +35,7 @@ describe('Project Skill Orchestration Engine', () => {
     },
     extractionCache: {
       findUnique: jest.fn().mockResolvedValue(null),
+      upsert: jest.fn().mockResolvedValue({}),
     },
     userGoal: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -176,6 +177,7 @@ describe('Project Skill Orchestration Engine', () => {
         skills: [
           {
             name: 'Backend Security',
+            parentId: 'parent-skill-uuid',
             confidence: 0.85,
             complexity: 'intermediate',
             evidence: ['auth.ts module matched'],
@@ -202,24 +204,11 @@ describe('Project Skill Orchestration Engine', () => {
 
       const result = await service.orchestrateProjectSkills('user-456', 'proj-123', dto);
 
-      expect(result.mode).toBe('INIT');
-      expect(result.sourceType).toBe('PROJECT');
+      expect(result.status).toBe('Accepted');
       expect(mockGitProcessingService.initializeRepository).toHaveBeenCalledWith(
         'proj-123',
         'https://github.com/my/project.git',
       );
-
-      expect(result.skillEvents[0]).toEqual({
-        skillId: 'skill-uuid-xxx',
-        sourceId: 'proj-123',
-        rawScore: 85.0,
-        weightedScore: 25.5,
-        contribution: 15.0,
-        oldProgress: 0.0,
-        newProgress: 15.0,
-        reason: 'Uses passport and jwt',
-        metadata: { signals: ['auth.ts module matched'] },
-      });
 
       expect(mockSkillEventsService.recordEvent).toHaveBeenCalledWith({
         userId: 'user-456',
@@ -246,6 +235,7 @@ describe('Project Skill Orchestration Engine', () => {
         skills: [
           {
             name: 'Backend Security',
+            parentId: 'parent-skill-uuid',
             confidence: 0.95,
             complexity: 'intermediate',
             evidence: ['auth.ts module changed'],
@@ -272,13 +262,11 @@ describe('Project Skill Orchestration Engine', () => {
 
       const result = await service.orchestrateProjectSkills('user-456', 'proj-123', dto);
 
-      expect(result.mode).toBe('COMMIT');
+      expect(result.status).toBe('Accepted');
       expect(mockGitProcessingService.processWebhookCommit).toHaveBeenCalledWith(
         'proj-123',
         'commitHashabc',
       );
-      expect(result.skillEvents[0].rawScore).toBe(40.0); // Calibrated rawScore clamp
-
       expect(mockSkillEventsService.recordEvent).toHaveBeenCalledWith({
         userId: 'user-456',
         skillId: 'skill-uuid-xxx',

@@ -9,6 +9,10 @@ export class InfraKeyGuard implements CanActivate {
     // Fallback to a hardcoded key if env is missing, for development ease
     const expectedKey = process.env.INFRA_SECRET_KEY;
     
+    if (!expectedKey) {
+      throw new UnauthorizedException('Infrastructure key is not configured in the environment.');
+    }
+    
     if (key === expectedKey) {
       return true;
     }

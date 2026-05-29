@@ -64,7 +64,8 @@ export class AiJsonFormats {
     {
       "name": "<skill_name>",
       "description": "<description_text>",
-      "whyImportant": "<reason_text>"
+      "whyImportant": "<reason_text>",
+      "isSpecificOrChildSkill": <boolean>
     }
   ]
 }`;
