@@ -1,11 +1,9 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { SourceType } from '@prisma/client';
 import { PrismaService } from '../../../../infrastructure/prisma/prisma.service';
 import { AiService } from '../../../../infrastructure/ai/ai.service';
 import { QuizRepository } from '../../quiz.repository';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { SkillEvidenceGeneratedEvent } from '../../../../shared/events/skill-evidence-generated.event';
 import { SelectModeCommand } from '../impl/select-mode.command';
 import { QuizStateResponse } from '../../interfaces/quiz-state.interface';
 import { QuizSessionStore } from '../../services/quiz-session.store';
@@ -35,20 +33,6 @@ export class SelectModeHandler implements ICommandHandler<SelectModeCommand, Qui
     }
 
     if (mode === '1') {
-      // Trigger zero-score evidence to create the skill in background and log the event
-      this.eventEmitter.emit(
-        'skill.evidence.generated',
-        new SkillEvidenceGeneratedEvent(
-          userId,
-          topic.trim(),
-          `Cerita belajar: ${topic.trim()}`,
-          SourceType.QUIZ,
-          '00000000-0000-0000-0000-000000000000', // Dummy ID for story mode
-          0.0,
-          `Cerita belajar saja tentang "${topic.trim()}"`,
-        ),
-      );
-
       const randomMsg = this.storyTemplates[Math.floor(Math.random() * this.storyTemplates.length)];
       return { state: 'EXIT', message: randomMsg };
     }
