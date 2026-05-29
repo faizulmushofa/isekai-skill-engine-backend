@@ -41,4 +41,4 @@ COPY --from=builder /app/prisma ./prisma
 EXPOSE 3090
 
 # Jalankan backend NestJS
-CMD ["node", "dist/main"]
+CMD ["node", "dist/src/main"]
