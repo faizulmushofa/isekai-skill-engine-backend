@@ -22,8 +22,19 @@ import { InfraDashboardModule } from './infrastructure/infra-dashboard/infra-das
 import { MailModule } from './features/mail/mail.module';
 import { QuotaModule } from './infrastructure/quota/quota.module';
 
+import { EventEmitterModule } from '@nestjs/event-emitter';
+
 @Module({
   imports: [
+    EventEmitterModule.forRoot({
+      wildcard: false,
+      delimiter: '.',
+      newListener: false,
+      removeListener: false,
+      maxListeners: 10,
+      verboseMemoryLeak: false,
+      ignoreErrors: false,
+    }),
     QuotaModule,
     ThrottlerModule.forRoot([{
       ttl: 1000,

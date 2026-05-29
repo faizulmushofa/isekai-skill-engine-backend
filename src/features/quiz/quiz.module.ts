@@ -1,17 +1,23 @@
 import { Module } from '@nestjs/common';
-import { QuizService } from './quiz.service';
+
 import { QuizController } from './quiz.controller';
 import { QuizRepository } from './quiz.repository';
 import { QuizEngine } from './quiz.engine';
 import { PrismaModule } from '../../infrastructure/prisma/prisma.module';
 import { AiModule } from '../../infrastructure/ai/ai.module';
-import { SkillsModule } from '../skills/skills.module';
-import { SkillEventsModule } from '../skill-events/skill-events.module';
+
+import { CqrsModule } from '@nestjs/cqrs';
+import { StartQuizHandler } from './commands/handlers/start-quiz.handler';
+import { SelectModeHandler } from './commands/handlers/select-mode.handler';
+import { SubmitAnswerHandler } from './commands/handlers/submit-answer.handler';
+import { QuizSessionStore } from './services/quiz-session.store';
+
+const CommandHandlers = [StartQuizHandler, SelectModeHandler, SubmitAnswerHandler];
 
 @Module({
-  imports: [PrismaModule, AiModule, SkillsModule, SkillEventsModule],
+  imports: [CqrsModule, PrismaModule, AiModule],
   controllers: [QuizController],
-  providers: [QuizService, QuizRepository, QuizEngine],
-  exports: [QuizService, QuizRepository, QuizEngine],
+  providers: [QuizRepository, QuizEngine, QuizSessionStore, ...CommandHandlers],
+  exports: [QuizRepository, QuizEngine],
 })
 export class QuizModule {}

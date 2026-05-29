@@ -21,6 +21,9 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { VerifyResetOtpDto } from './dto/verify-reset-otp.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('Auth')
@@ -89,6 +92,32 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<void> {
     await this.authService.logout(userId, res);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Minta OTP untuk reset password' })
+  @ApiResponse({ status: 200, description: 'OTP berhasil dikirim ke email' })
+  async forgotPassword(@Body() payload: ForgotPasswordDto): Promise<{ message: string }> {
+    return this.authService.forgotPassword(payload);
+  }
+
+  @Post('verify-reset-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verifikasi OTP untuk reset password' })
+  @ApiResponse({ status: 200, description: 'OTP valid' })
+  @ApiResponse({ status: 400, description: 'OTP tidak valid atau kedaluwarsa' })
+  async verifyResetOtp(@Body() payload: VerifyResetOtpDto): Promise<{ message: string }> {
+    return this.authService.verifyResetOtp(payload);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset password menggunakan OTP' })
+  @ApiResponse({ status: 200, description: 'Password berhasil diubah' })
+  @ApiResponse({ status: 400, description: 'OTP tidak valid atau konfirmasi password tidak cocok' })
+  async resetPassword(@Body() payload: ResetPasswordDto): Promise<{ message: string }> {
+    return this.authService.resetPassword(payload);
   }
 }
 

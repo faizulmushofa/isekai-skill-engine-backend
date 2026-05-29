@@ -7,6 +7,9 @@ import {
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { VerifyResetOtpDto } from './dto/verify-reset-otp.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtService } from '../../infrastructure/jwt/jwt.service';
 import { PASSWORD_SERVICE_TOKEN } from '../../shared/security/password.service.interface';
 import type { IPasswordService } from '../../shared/security/password.service.interface';
@@ -230,5 +233,76 @@ export class AuthService {
 
     // Clear HttpOnly cookie via JwtService
     this.jwtService.clearRefreshTokenCookie(res);
+  }
+
+  async forgotPassword(payload: ForgotPasswordDto): Promise<{ message: string }> {
+    const user = await this.usersService.findRawByEmail(payload.email);
+    if (!user) {
+      // Don't reveal if user exists or not for security reasons
+      return { message: 'Jika email terdaftar, OTP untuk mereset password telah dikirim.' };
+    }
+
+    const otpCode = this.generateOtp();
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await this.usersService.updateSystemUser(user.id, {
+      otpCode,
+      otpExpiresAt,
+    });
+
+    try {
+      await this.mailService.sendResetPasswordOtpEmail(payload.email, otpCode);
+    } catch (error) {
+      console.error('Failed to send reset password OTP email', error);
+      throw new BadRequestException('Gagal mengirim email OTP');
+    }
+
+    return { message: 'Jika email terdaftar, OTP untuk mereset password telah dikirim.' };
+  }
+
+  async verifyResetOtp(payload: VerifyResetOtpDto): Promise<{ message: string }> {
+    const user = await this.usersService.findRawByEmail(payload.email);
+    if (!user) {
+      throw new BadRequestException('Email atau OTP tidak valid');
+    }
+
+    if (user.otpCode !== payload.otpCode) {
+      throw new BadRequestException('Kode OTP tidak valid');
+    }
+
+    if (!user.otpExpiresAt || user.otpExpiresAt < new Date()) {
+      throw new BadRequestException('Kode OTP sudah kedaluwarsa');
+    }
+
+    return { message: 'OTP valid' };
+  }
+
+  async resetPassword(payload: ResetPasswordDto): Promise<{ message: string }> {
+    if (payload.newPassword !== payload.confirmPassword) {
+      throw new BadRequestException('Konfirmasi password tidak cocok');
+    }
+
+    const user = await this.usersService.findRawByEmail(payload.email);
+    if (!user) {
+      throw new BadRequestException('Email atau OTP tidak valid');
+    }
+
+    if (user.otpCode !== payload.otpCode) {
+      throw new BadRequestException('Kode OTP tidak valid');
+    }
+
+    if (!user.otpExpiresAt || user.otpExpiresAt < new Date()) {
+      throw new BadRequestException('Kode OTP sudah kedaluwarsa');
+    }
+
+    const passwordHash = await this.passwordService.hash(payload.newPassword);
+
+    await this.usersService.updateSystemUser(user.id, {
+      passwordHash,
+      otpCode: null,
+      otpExpiresAt: null,
+    });
+
+    return { message: 'Password berhasil diubah' };
   }
 }

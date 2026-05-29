@@ -5,6 +5,7 @@ import { SkillProgressionService } from '../../shared/progression/services/skill
 import { SkillEngineCalibration } from '../../shared/progression/calibration/skill-engine-calibration';
 import { SkillMathEngine } from '../../shared/progression/math/skill-math.engine';
 import { UserSkillsAggregatorService } from '../user-skills/services/user-skills-aggregator.service';
+import { SkillEventsRepository } from './skill-events.repository';
 
 @Injectable()
 export class SkillEventsService {
@@ -13,6 +14,7 @@ export class SkillEventsService {
     private readonly progressionService: SkillProgressionService,
     private readonly calibration: SkillEngineCalibration,
     private readonly aggregator: UserSkillsAggregatorService,
+    private readonly skillEventsRepository: SkillEventsRepository,
   ) {}
 
   /**
@@ -54,25 +56,22 @@ export class SkillEventsService {
       });
 
       // 3. Persist the immutable event log
-      const event = await tx.skillEvent.create({
-        data: {
-          userId: calculation.userId,
-          skillId: calculation.skillId,
-          sourceType: calculation.sourceType,
-          sourceId: calculation.sourceId,
-          rawScore: calculation.rawScore,
-          weightedScore: calculation.weightedScore,
-          contribution: calculation.contribution,
-          oldProgress: calculation.oldProgress,
-          newProgress: calculation.newProgress,
-          reason: params.reason || null,
-          metadata: {
-            formulaVersion: calculation.formulaVersion,
-            ...(params.metadata || {}),
-          },
-
+      const event = await this.skillEventsRepository.create({
+        user: { connect: { id: calculation.userId } },
+        skill: { connect: { id: calculation.skillId } },
+        sourceType: calculation.sourceType,
+        sourceId: calculation.sourceId,
+        rawScore: calculation.rawScore,
+        weightedScore: calculation.weightedScore,
+        contribution: calculation.contribution,
+        oldProgress: calculation.oldProgress,
+        newProgress: calculation.newProgress,
+        reason: params.reason || null,
+        metadata: {
+          formulaVersion: calculation.formulaVersion,
+          ...(params.metadata || {}),
         },
-      });
+      }, tx);
 
       // 4. Update the Projection Layer (UserSkill progress state)
       await this.aggregator.updateProgress(
@@ -151,24 +150,22 @@ export class SkillEventsService {
     }
 
     // E. Save propagated immutable event
-    await tx.skillEvent.create({
-      data: {
-        userId,
-        skillId: childSkill.parentId,
-        sourceType,
-        sourceId,
-        rawScore: 0.0, // Propagated score has 0 raw evidence score
-        weightedScore: 0.0,
-        contribution: actualContribution,
-        oldProgress,
-        newProgress,
-        reason: `Propagated from "${childSkill.name}": ${originalReason}`,
-        metadata: {
-          propagatedFrom: childSkillId,
-          originalContribution: deltaProgress,
-        },
+    await this.skillEventsRepository.create({
+      user: { connect: { id: userId } },
+      skill: { connect: { id: childSkill.parentId } },
+      sourceType,
+      sourceId,
+      rawScore: 0.0, // Propagated score has 0 raw evidence score
+      weightedScore: 0.0,
+      contribution: actualContribution,
+      oldProgress,
+      newProgress,
+      reason: `Propagated from "${childSkill.name}": ${originalReason}`,
+      metadata: {
+        propagatedFrom: childSkillId,
+        originalContribution: deltaProgress,
       },
-    });
+    }, tx);
 
     // F. Update parent projection state
     await this.aggregator.updateProgress(

@@ -362,3 +362,16 @@ model UserActionQuota {
   @@map("user_action_quotas")
 }
 
+// =========================
+// INFRA PASSKEYS (WEBAUTHN)
+// =========================
+model InfraPasskey {
+  id           String   @id @default(uuid()) @db.Uuid
+  credentialID String   @unique @map("credential_id") @db.Text
+  publicKey    Bytes    @map("public_key")
+  counter      BigInt
+  transports   String?  // JSON string of transports
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp
+
+  @@map("infra_passkeys")
+}
