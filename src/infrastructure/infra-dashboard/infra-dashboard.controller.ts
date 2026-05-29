@@ -111,6 +111,62 @@ export class InfraDashboardController {
     return { memory, history };
   }
 
+  @Get('model-usage')
+  @UseGuards(InfraKeyGuard)
+  @ApiOperation({ summary: 'Get token usage aggregated by model for today and this month' })
+  @ApiQuery({ name: 'key', required: true, description: 'Infra Secret Key' })
+  async getModelUsage() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    // 1. Get usage today grouped by model
+    const usageToday = await this.prisma.dailyTokenUsage.groupBy({
+      by: ['provider', 'model'],
+      _sum: {
+        totalTokens: true,
+        promptTokens: true,
+        completionTokens: true,
+      },
+      where: {
+        date: today,
+      },
+    });
+
+    // 2. Get usage this month grouped by model
+    const usageMonth = await this.prisma.dailyTokenUsage.groupBy({
+      by: ['provider', 'model'],
+      _sum: {
+        totalTokens: true,
+        promptTokens: true,
+        completionTokens: true,
+      },
+      where: {
+        date: {
+          gte: firstDayOfMonth,
+        },
+      },
+    });
+
+    return {
+      today: usageToday.map(item => ({
+        provider: item.provider,
+        model: item.model,
+        totalTokens: item._sum.totalTokens ?? 0,
+        promptTokens: item._sum.promptTokens ?? 0,
+        completionTokens: item._sum.completionTokens ?? 0,
+      })),
+      month: usageMonth.map(item => ({
+        provider: item.provider,
+        model: item.model,
+        totalTokens: item._sum.totalTokens ?? 0,
+        promptTokens: item._sum.promptTokens ?? 0,
+        completionTokens: item._sum.completionTokens ?? 0,
+      })),
+    };
+  }
+
   @Get('routing-config')
   @UseGuards(InfraKeyGuard)
   @ApiOperation({ summary: 'Get current AI task routing configs' })
