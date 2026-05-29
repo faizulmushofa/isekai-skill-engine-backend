@@ -28,6 +28,7 @@ export class DynamicRoutingService implements OnModuleInit {
           provider: config.provider as 'gemini' | 'groq',
           model: config.model,
           temperature: config.temperature,
+          maxDailyTokens: config.maxDailyTokens,
         };
 
         if (config.fallbackProvider && config.fallbackModel) {
@@ -96,21 +97,24 @@ export class DynamicRoutingService implements OnModuleInit {
     model: string,
     temperature: number,
     fallbackProvider?: 'gemini' | 'groq',
-    fallbackModel?: string
+    fallbackModel?: string,
+    maxDailyTokens?: number
   ) {
     // Validate if the taskType exists in base config
     if (!AI_TASK_ROUTES[taskType]) {
       throw new Error(`Task Type ${taskType} does not exist in static configurations.`);
     }
 
+    const maxTokens = maxDailyTokens !== undefined ? maxDailyTokens : 100000;
+
     await this.prisma.aiTaskConfig.upsert({
       where: { taskType },
-      update: { provider, model, temperature, fallbackProvider, fallbackModel },
-      create: { taskType, provider, model, temperature, fallbackProvider, fallbackModel },
+      update: { provider, model, temperature, fallbackProvider, fallbackModel, maxDailyTokens: maxTokens },
+      create: { taskType, provider, model, temperature, fallbackProvider, fallbackModel, maxDailyTokens: maxTokens },
     });
 
     // Update memory
-    const override: Partial<AiTaskRoute> = { provider, model, temperature };
+    const override: Partial<AiTaskRoute> = { provider, model, temperature, maxDailyTokens: maxTokens };
     if (fallbackProvider && fallbackModel) {
       override.fallbacks = [
         {

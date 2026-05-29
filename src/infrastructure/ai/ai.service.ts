@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Injectable, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
 import { AiTaskRouter } from './routing/ai-task-router';
 import { StructuredResponseParser } from './parser/structured-response-parser';
 import { AiRequest } from './interfaces/ai-request.interface';
@@ -47,21 +47,53 @@ export class AiService {
       }
     }
 
-    const { responseText, route, usage } = await this.taskRouter.routeAndExecute(
+    // 2. Check Daily Token Limit Guard
+    const route = this.taskRouter.getRoute(request.taskType);
+    if (!route) {
+      throw new InternalServerErrorException(
+        `Konfigurasi perutean tidak ditemukan untuk tipe tugas: "${request.taskType}"`,
+      );
+    }
+
+    if (route.maxDailyTokens && route.maxDailyTokens > 0) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const usageToday = await this.prisma.dailyTokenUsage.aggregate({
+        _sum: {
+          totalTokens: true,
+        },
+        where: {
+          date: today,
+          provider: route.provider,
+          model: route.model,
+          taskType: request.taskType,
+        },
+      });
+
+      const totalUsedToday = usageToday._sum.totalTokens ?? 0;
+      if (totalUsedToday >= route.maxDailyTokens) {
+        throw new ForbiddenException(
+          `Token harian untuk model '${route.model}' pada tugas '${request.taskType}' telah habis (${totalUsedToday}/${route.maxDailyTokens} token). Silakan coba lagi besok.`,
+        );
+      }
+    }
+
+    const { responseText, route: resolvedRoute, usage } = await this.taskRouter.routeAndExecute(
       request.taskType,
       request.systemPrompt,
       request.userPrompt,
     );
 
     // Track granular usage
-    if (usage && route.provider) {
-      this.tokenTracker.trackUsage(route.provider, route.model, request.taskType, resolvedUserName, usage);
+    if (usage && resolvedRoute.provider) {
+      this.tokenTracker.trackUsage(resolvedRoute.provider, resolvedRoute.model, request.taskType, resolvedUserName, usage);
     }
 
     // AI Response -> JSON Extraction -> Schema Validation -> Safe Structured Output
     return this.responseParser.parseAndValidate<T>(
       responseText,
-      route.responseSchema,
+      resolvedRoute.responseSchema,
     );
   }
 }

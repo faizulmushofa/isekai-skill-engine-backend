@@ -11,6 +11,10 @@ export class AiTaskRouter {
     private readonly dynamicRouting: DynamicRoutingService,
   ) {}
 
+  getRoute(taskType: AiTaskType): AiTaskRoute | undefined {
+    return this.dynamicRouting.getRoute(taskType);
+  }
+
   /**
    * Matches an AiTaskType to its config route and delegates execution to ProviderExecutor.
    * Returns the raw output string and the resolved task route details.

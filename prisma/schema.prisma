@@ -332,6 +332,7 @@ model AiTaskConfig {
   temperature      Float    @default(0.5)
   fallbackProvider String?  @map("fallback_provider") @db.VarChar(50)
   fallbackModel    String?  @map("fallback_model") @db.VarChar(200)
+  maxDailyTokens   Int      @default(100000) @map("max_daily_tokens")
   updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp
 
   @@map("ai_task_configs")

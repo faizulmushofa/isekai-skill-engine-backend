@@ -29,6 +29,7 @@ export interface AiTaskRoute {
   temperature: number;
   fallbacks?: AiFallbackRoute[];
   maxRetries?: number;
+  maxDailyTokens?: number;
 }
 
 export const AI_TASK_ROUTES: Record<AiTaskType, AiTaskRoute> = {
