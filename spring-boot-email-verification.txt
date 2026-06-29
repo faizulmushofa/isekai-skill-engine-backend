@@ -1,0 +1,50 @@
+DESKRIPSI CARA KERJA EMAIL VERIFIKASI PADA PROYEK INI
+========================================================================
+Proyek isekai-skill-engine-backend (NestJS) menggunakan sistem verifikasi email berbasis One-Time Password (OTP) 6-digit yang dikirimkan menggunakan Brevo SMTP API.
+
+Berikut adalah rincian alur kerja dan mekanisme teknis dari email verifikasi di proyek ini:
+
+1. PROSES REGISTRASI & GENERATE OTP (AuthService.register)
+------------------------------------------------------------------------
+- Saat user mendaftar via `POST /api/auth/register`, sistem memeriksa apakah email sudah terdaftar:
+  * Jika email sudah terdaftar dan TERVERIFIKASI, registrasi ditolak.
+  * Jika email sudah terdaftar namun BELUM TERVERIFIKASI, sistem akan memperbarui data username, password, dan membuat OTP baru untuk email tersebut.
+  * Jika email belum terdaftar sama sekali, sistem akan membuat entitas user baru di database.
+- Pembuatan OTP:
+  * Sistem meng-generate 6-digit angka acak menggunakan fungsi `generateOtp()` (Math.random).
+  * Menyimpan kode OTP tersebut di kolom `otpCode`.
+  * Mengatur waktu kedaluwarsa OTP di kolom `otpExpiresAt` selama 10 menit ke depan (Date.now() + 10 * 60 * 1000).
+  * Status awal user diatur ke `isEmailVerified = false`.
+- Mekanisme Rollback (Fallback):
+  * Jika proses pengiriman email OTP gagal (misal: API Brevo error/down), sistem akan menangkap error tersebut dan secara otomatis melakukan rollback database (menghapus user baru yang gagal didaftarkan atau mengembalikan data user lama ke kondisi semula). Ini mencegah user gantung (terdaftar tapi tidak bisa diverifikasi).
+
+2. INTEGRASI PENGIRIMAN EMAIL (MailService)
+------------------------------------------------------------------------
+- Pengiriman email tidak menggunakan SMTP biasa, melainkan menggunakan REST API dari Brevo (sendEmailViaBrevo) dengan melakukan HTTP POST request ke endpoint `https://api.brevo.com/v3/smtp/email`.
+- Kredensial dan konfigurasi diambil dari berkas `.env`:
+  * `BREVO_API_KEY`: Kunci API untuk otentikasi ke Brevo.
+  * `MAIL_SENDER_EMAIL` & `MAIL_SENDER_NAME`: Informasi pengirim email (Aether Gateway).
+- Payload yang dikirimkan berupa JSON yang berisi informasi pengirim, penerima, subjek, dan template HTML yang memuat kode OTP 6-digit.
+
+3. VERIFIKASI OTP (AuthService.verifyOtp)
+------------------------------------------------------------------------
+- Ketika user memasukkan kode OTP via endpoint `POST /api/auth/verify-otp`, sistem akan melakukan beberapa pengecekan berurutan:
+  1. Memeriksa apakah user dengan email tersebut ada di database.
+  2. Memeriksa apakah email tersebut sudah terverifikasi sebelumnya.
+  3. Mencocokkan `otpCode` yang dikirim user dengan `otpCode` yang tersimpan di database.
+  4. Memeriksa apakah waktu sekarang belum melewati batas waktu `otpExpiresAt`.
+- Jika semua pengecekan berhasil:
+  * Kolom `isEmailVerified` diubah menjadi `true`.
+  * Kolom `otpCode` dan `otpExpiresAt` diatur ke `null` untuk membersihkan token yang sudah terpakai.
+  * Perubahan disimpan ke database dan verifikasi selesai.
+
+4. PENGIRIMAN ULANG OTP (AuthService.resendOtp)
+------------------------------------------------------------------------
+- Jika OTP kedaluwarsa atau tidak diterima, user dapat meminta OTP baru via endpoint `POST /api/auth/resend-otp`.
+- Sistem memastikan user tersebut ada dan status `isEmailVerified` masih `false`.
+- Sistem meng-generate OTP baru, memperbarui `otpCode` dan `otpExpiresAt` (+10 menit) di database, lalu mengirimkan email OTP yang baru via `MailService`.
+
+5. PROTEKSI SAAT LOGIN (AuthService.login)
+------------------------------------------------------------------------
+- Ketika user melakukan login via `POST /api/auth/login`, setelah memvalidasi email dan kecocokan password hash, sistem akan memeriksa status kolom `isEmailVerified`.
+- Jika status `isEmailVerified` masih `false`, sistem langsung menolak login dengan melempar `UnauthorizedException('Please verify your email first')` sebelum menghasilkan Access Token atau Refresh Token JWT.
