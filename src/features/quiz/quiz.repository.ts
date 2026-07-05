@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
+import { SourceType } from '@prisma/client';
 
 @Injectable()
 export class QuizRepository {
@@ -196,6 +197,44 @@ export class QuizRepository {
       data: {
         score,
       },
+    });
+  }
+
+  async findAttemptsByUserId(userId: string) {
+    const attempts = await this.prisma.quizAttempt.findMany({
+      where: { userId },
+      include: {
+        quiz: true,
+        quizAnswers: {
+          include: {
+            question: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const attemptIds = attempts.map(a => a.id);
+    const skillEvents = await this.prisma.skillEvent.findMany({
+      where: {
+        sourceId: { in: attemptIds },
+        sourceType: SourceType.QUIZ,
+      },
+      include: {
+        skill: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    return attempts.map(attempt => {
+      const relatedEvents = skillEvents.filter(se => se.sourceId === attempt.id);
+      return {
+        ...attempt,
+        skillEvents: relatedEvents,
+      };
     });
   }
 }

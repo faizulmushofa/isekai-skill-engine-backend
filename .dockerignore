@@ -2,6 +2,10 @@ node_modules
 dist
 npm-debug.log
 .git
+.github
 Dockerfile
 .dockerignore
+docker-compose.yml
 .env
+*.postman_collection.json
+data

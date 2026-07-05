@@ -10,8 +10,8 @@ import { SourceType, Journal } from '@prisma/client';
 import { JournalsRepository } from './journals.repository';
 import { ExtractionService } from '../../infrastructure/extraction/extraction.service';
 import { AiService } from '../../infrastructure/ai/ai.service';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { SkillEvidenceGeneratedEvent } from '../../shared/events/skill-evidence-generated.event';
+import { SkillEventsService } from '../skill-events/skill-events.service';
+import { SkillsService } from '../skills/skills.service';
 import { CreateJournalDto } from './dto/create-journal.dto';
 import { LearningEvidencePrompt } from '../../infrastructure/ai/prompt/learning-evidence.prompt';
 
@@ -21,7 +21,8 @@ export class JournalsService {
     private readonly journalsRepository: JournalsRepository,
     private readonly extractionService: ExtractionService,
     private readonly aiService: AiService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly skillEventsService: SkillEventsService,
+    private readonly skillsService: SkillsService,
   ) {}
 
   /**
@@ -114,15 +115,27 @@ export class JournalsService {
     cleanText: string,
     sourceRef: 'manual' | 'file',
   ): Promise<void> {
+    const activeGoals = await this.journalsRepository.findActiveUserGoals(userId);
+    const validParentSkills: Array<{id: string; name: string}> = [];
+    if (activeGoals.length > 0) {
+      activeGoals.forEach(ug => {
+        ug.careerGoal.careerGoalSkills.forEach(cgs => {
+          validParentSkills.push({ id: cgs.skill.id, name: cgs.skill.name });
+        });
+      });
+    }
+
     // STAGE 2: Learning Evidence AI Layer
     const promptRequest = LearningEvidencePrompt.build({
       extractedText: cleanText,
       sourceType: 'TEXT',
+      validParentSkills,
     });
 
     const aiResponse = await this.aiService.generate<{
       skills: Array<{
         name: string;
+        parentId: string | null;
         confidence: number;
         complexity: 'beginner' | 'intermediate' | 'advanced';
         evidence: string[];
@@ -134,20 +147,30 @@ export class JournalsService {
       return; // Stop pipeline if AI finds 0 learning signals
     }
 
-    // STAGE 3, 4, 5 & 6: Replaced by Event Driven Architecture (Pub/Sub)
+    // STAGE 3, 4, 5 & 6: Direct synchronous call (no fire-and-forget)
     for (const s of aiResponse.skills) {
-      this.eventEmitter.emit(
-        'skill.evidence.generated',
-        new SkillEvidenceGeneratedEvent(
+      try {
+        const skillIds = await this.skillsService.findOrCreateMany([
+          {
+            name: s.name,
+            description: s.reason,
+            parentId: s.parentId ?? null,
+          },
+        ]);
+        const skillId = skillIds[0];
+
+        await this.skillEventsService.recordEvent({
           userId,
-          s.name,
-          s.reason,
-          SourceType.JOURNAL,
-          journalId,
-          s.confidence * 100.0,
-          s.reason, // Use reason as event reason
-        ),
-      );
+          skillId,
+          sourceType: SourceType.JOURNAL,
+          sourceId: journalId,
+          rawScore: s.confidence * 100.0,
+          reason: s.reason,
+        });
+      } catch (err: any) {
+        // Log error per skill but continue processing other skills
+        console.error(`Failed to record skill event for "${s.name}":`, err?.message);
+      }
     }
   }
 
@@ -155,7 +178,7 @@ export class JournalsService {
     return this.journalsRepository.findByUserId(userId);
   }
 
-  async findOne(userId: string, id: string): Promise<Journal> {
+  async findOne(userId: string, id: string): Promise<any> {
     if (!id) {
       throw new BadRequestException('ID journal wajib diisi');
     }
@@ -166,6 +189,16 @@ export class JournalsService {
       throw new NotFoundException(`Journal dengan ID '${id}' tidak ditemukan`);
     }
 
-    return journal;
+    const skillEvents = await this.journalsRepository.findSkillEventsForJournal(id);
+
+    return {
+      ...journal,
+      skillEvents,
+    };
+  }
+
+  async delete(userId: string, id: string): Promise<any> {
+    await this.findOne(userId, id);
+    return this.journalsRepository.deleteJournal(id);
   }
 }
