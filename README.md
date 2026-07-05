@@ -40,21 +40,32 @@ graph TD
 
 ---
 
-## 🚀 Penggunaan Cepat dengan Docker
+## 🚀 Penggunaan Cepat dengan Docker Compose
 
-Layanan ini dapat dijalankan menggunakan image Docker resmi yang telah dikonfigurasi untuk produksi.
+Layanan ini dilengkapi dengan `docker-compose.yml` yang sudah dikonfigurasi untuk produksi dan siap dijalankan dengan satu perintah.
 
 ```bash
-docker run -d \
-  --name isekai-skill-engine \
-  -p 3090:3090 \
-  --env-file .env \
-  -v /path/to/local/data:/app/data \
-  isekai-skill-engine-backend:latest
+# Build image & jalankan container di background
+docker compose up --build -d
 ```
 
-> [!NOTE]  
-> Folder volume `/app/data` digunakan untuk menyimpan workspace repositori Git yang diunduh dan diproses secara lokal oleh backend.
+Backend akan berjalan dan dapat diakses di `http://localhost:8091`.
+
+> [!NOTE]
+> Semua environment variable (API key, database URL, JWT secret) dimuat otomatis dari file `.env` yang ada di folder yang sama dengan `docker-compose.yml`.
+
+### Perintah Docker Lainnya
+
+```bash
+# Lihat log real-time
+docker compose logs -f backend
+
+# Stop container
+docker compose down
+
+# Rebuild tanpa cache (setelah ada perubahan kode)
+docker compose build --no-cache && docker compose up -d
+```
 
 ---
 
@@ -88,18 +99,32 @@ Konfigurasi aplikasi sepenuhnya dimuat melalui Environment Variable berikut:
 * `POST /auth/verify-otp` - Verifikasi kode OTP email.
 * `POST /auth/login` - Login, pemberian JWT token & cookie.
 * `POST /auth/logout` - Logout & penghapusan sesi.
+* `POST /auth/refresh` - Perbarui Access Token menggunakan Refresh Token.
 
 #### 📂 **Projects (`/projects`)**
 * `POST /projects` - Mendaftarkan pelacakan repositori proyek.
-* `POST /projects/:id/orchestrate` - Memicu kloning, analisis perubahan file git diff, dan kalkulasi AI.
+* `GET /projects` - Mengambil seluruh proyek milik pengguna.
+* `POST /projects/:id/orchestrate` - Memicu kloning, analisis git diff, dan kalkulasi AI.
+* `DELETE /projects/:id` - Menghapus proyek dari pelacakan.
 
 #### ✍️ **Journals (`/journals`)**
 * `POST /journals` - Unggah jurnal berbasis teks.
 * `POST /journals/upload` - Ekstraksi dokumen bukti belajar PDF/TXT.
+* `GET /journals` - Mengambil seluruh jurnal milik pengguna.
+* `GET /journals/:id` - Mengambil detail jurnal beserta daftar SkillEvent (XP) yang dihasilkan.
+* `DELETE /journals/:id` - Menghapus jurnal.
 
 #### 🧠 **Quiz (`/quiz`)**
 * `POST /quiz/start` - Memulai sesi kuis baru berdasarkan topik.
 * `POST /quiz/answer` - Menyerahkan jawaban pertanyaan kuis saat ini.
+* `GET /quiz/history` - Mengambil riwayat seluruh sesi kuis beserta perolehan XP per skill.
+
+#### 🌳 **Skills (`/skills`)**
+* `GET /skills` - Mengambil seluruh skill yang tersedia dalam sistem.
+* `GET /user-skills` - Mengambil progres skill pengguna yang sedang login.
+
+#### 👤 **Users (`/users`)**
+* `GET /users/me` - Mengambil profil pengguna aktif beserta data karir.
 
 ---
 
