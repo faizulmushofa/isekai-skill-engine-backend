@@ -20,6 +20,8 @@ import { AiTaskType } from '../../infrastructure/ai/enums/ai-task-type.enum';
 import { InMemoryQueueService } from '../../infrastructure/queue/in-memory-queue.service';
 import { DeterministicExtractionService } from '../../infrastructure/extraction/deterministic-extraction.service';
 import { SkillEvidenceGeneratedEvent } from '../../shared/events/skill-evidence-generated.event';
+import { SkillsService } from '../skills/skills.service';
+import { SkillEventsService } from '../skill-events/skill-events.service';
 
 @Injectable()
 export class ProjectsService {
@@ -33,6 +35,8 @@ export class ProjectsService {
     private readonly queueService: InMemoryQueueService,
     private readonly deterministicService: DeterministicExtractionService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly skillsService: SkillsService,
+    private readonly skillEventsService: SkillEventsService,
   ) {}
 
   async create(userId: string, dto: CreateProjectDto): Promise<Project> {
@@ -88,29 +92,23 @@ export class ProjectsService {
         return {
           status: 'Cached',
           message: 'Extracted from cache',
-          skills: cached.extractedSkills,
+          skillDeltas: cached.extractedSkills,
         };
       }
     }
 
-    const jobId = `extract-${projectId}-${Date.now()}`;
-    
-    // Add to Queue
-    await this.queueService.addJob(jobId, async () => {
-      await this.processProjectSkills(
-        userId, 
-        project, 
-        dto, 
-        file ? file.buffer : undefined,
-        file ? file.originalname : undefined,
-        file ? file.mimetype : undefined
-      );
-    });
+    const generatedEvents = await this.processProjectSkills(
+      userId, 
+      project, 
+      dto, 
+      file ? file.buffer : undefined,
+      file ? file.originalname : undefined,
+      file ? file.mimetype : undefined
+    );
 
     return {
-      status: 'Accepted',
-      jobId,
-      message: 'Extraction added to queue. Please poll for completion or check graph later.',
+      status: 'Success',
+      skillDeltas: generatedEvents,
     };
   }
 
@@ -124,7 +122,7 @@ export class ProjectsService {
     fileBuffer?: Buffer,
     fileName?: string,
     fileMime?: string
-  ): Promise<void> {
+  ): Promise<any[]> {
     const projectId = project.id;
     let mode: 'INIT' | 'COMMIT' = 'INIT';
     if (dto.modeHint) {
@@ -269,34 +267,38 @@ export class ProjectsService {
         }
         const rawScore = confidence * 100.0;
 
-        // Use EventEmitter for Gamification processing
-        this.eventEmitter.emit(
-          'skill.evidence.generated',
-          new SkillEvidenceGeneratedEvent(
-            userId,
-            skill.name,
-            skill.reason || `Extracted from project "${project.title}"`,
-            SourceType.PROJECT,
-            projectId,
-            rawScore,
-            JSON.stringify({
-              signals: skill.evidence,
-              subSkills: [{ name: skill.name, weight: confidence }],
-              bayesianScore: rawScore,
-            }),
-          ),
-        );
+        // 1. Resolve or create the abstract skillNode using the Graph Resolver
+        const skillIds = await this.skillsService.findOrCreateMany([
+          {
+            name: skill.name,
+            description: skill.reason || `Extracted from project "${project.title}"`,
+          },
+        ]);
+        const skillId = skillIds[0];
 
-        generatedEvents.push({
-          skillName: skill.name,
+        // 2. Trigger recursive Bayesian propagation up the skill tree ancestors
+        const event = await this.skillEventsService.recordEvent({
+          userId,
+          skillId,
+          sourceType: SourceType.PROJECT,
           sourceId: projectId,
-          rawScore: rawScore,
-          reason: skill.reason,
+          rawScore,
+          reason: skill.reason || `Extracted from project "${project.title}"`,
           metadata: {
             signals: skill.evidence,
             subSkills: [{ name: skill.name, weight: confidence }],
             bayesianScore: rawScore,
           },
+        });
+
+        generatedEvents.push({
+          skillId: event.skillId,
+          skillName: skill.name,
+          oldProgress: event.oldProgress,
+          newProgress: event.newProgress,
+          contribution: event.contribution,
+          reason: event.reason,
+          metadata: event.metadata,
         });
       }
     }
@@ -309,5 +311,11 @@ export class ProjectsService {
     await this.projectsRepository.updateProject(projectId, { latestAnalysis: generatedEvents });
 
     this.logger.log(`[Project Extraction Background] Orchestration completed. Extracted ${generatedEvents.length} skill events.`);
+    return generatedEvents;
+  }
+
+  async delete(userId: string, id: string): Promise<any> {
+    await this.findOne(userId, id);
+    return this.projectsRepository.deleteProject(id);
   }
 }

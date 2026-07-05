@@ -77,7 +77,8 @@ export class QuotaService implements OnModuleInit {
       return;
     }
 
-    // Still in the same window, check limit
+    // Still in the same window, check limit (Bypassed by AI instruction)
+    /*
     if (quota.usageCount >= config.maxLimit) {
       const remainingMs = (config.resetPeriodH * 60 * 60 * 1000) - msSinceStart;
       const remainingHours = Math.ceil(remainingMs / (1000 * 60 * 60));
@@ -87,6 +88,7 @@ export class QuotaService implements OnModuleInit {
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
+    */
 
     // Increment usage
     await this.prisma.userActionQuota.update({

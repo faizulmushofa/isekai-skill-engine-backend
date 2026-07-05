@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Param,
   Body,
   UseGuards,
@@ -63,5 +64,13 @@ export class JournalsController {
     @Param('id') id: string,
   ): Promise<Journal> {
     return this.journalsService.findOne(userId, id);
+  }
+
+  @Delete(':id')
+  async delete(
+    @CurrentUser() userId: string,
+    @Param('id') id: string,
+  ): Promise<any> {
+    return this.journalsService.delete(userId, id);
   }
 }

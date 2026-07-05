@@ -77,4 +77,10 @@ export class ProjectsRepository {
       }
     });
   }
+
+  async deleteProject(id: string): Promise<Project> {
+    return this.prisma.project.delete({
+      where: { id },
+    });
+  }
 }

@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Param,
   Body,
   UseGuards,
@@ -69,5 +70,13 @@ export class ProjectsController {
       dto,
       file,
     );
+  }
+
+  @Delete(':id')
+  async delete(
+    @CurrentUser() userId: string,
+    @Param('id') id: string,
+  ): Promise<any> {
+    return this.projectsService.delete(userId, id);
   }
 }

@@ -9,5 +9,6 @@ export class SkillEvidenceGeneratedEvent {
     public readonly sourceId: string,
     public readonly evidenceScore: number,
     public readonly reason: string,
+    public readonly parentId?: string | null,
   ) {}
 }

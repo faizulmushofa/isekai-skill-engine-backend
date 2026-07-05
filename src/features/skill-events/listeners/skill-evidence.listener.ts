@@ -22,6 +22,7 @@ export class SkillEvidenceListener {
         {
           name: event.skillNode,
           description: event.description,
+          parentId: event.parentId,
         },
       ]);
       const skillId = skillIds[0];

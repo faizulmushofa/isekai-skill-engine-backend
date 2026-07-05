@@ -7,6 +7,8 @@ import { AiModule } from '../../infrastructure/ai/ai.module';
 import { GitProcessingModule } from '../../infrastructure/git-processing/git-processing.module';
 
 import { ProjectsRepository } from './projects.repository';
+import { SkillsModule } from '../skills/skills.module';
+import { SkillEventsModule } from '../skill-events/skill-events.module';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { ProjectsRepository } from './projects.repository';
     ExtractionModule,
     AiModule,
     GitProcessingModule,
+    SkillsModule,
+    SkillEventsModule,
   ],
   controllers: [ProjectsController],
   providers: [ProjectsService, ProjectsRepository],

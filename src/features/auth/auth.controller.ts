@@ -19,10 +19,7 @@ import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { VerifyResetOtpDto } from './dto/verify-reset-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
@@ -50,23 +47,6 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string; accessToken: string }> {
     return this.authService.login(payload, res);
-  }
-
-  @Post('verify-otp')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verifikasi email menggunakan OTP' })
-  @ApiResponse({ status: 200, description: 'Email berhasil diverifikasi' })
-  @ApiResponse({ status: 400, description: 'OTP tidak valid atau kedaluwarsa' })
-  async verifyOtp(@Body() payload: VerifyOtpDto): Promise<{ message: string }> {
-    return this.authService.verifyOtp(payload.email, payload.otpCode);
-  }
-
-  @Post('resend-otp')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Kirim ulang OTP ke email' })
-  @ApiResponse({ status: 200, description: 'OTP berhasil dikirim ulang' })
-  async resendOtp(@Body() payload: ResendOtpDto): Promise<{ message: string }> {
-    return this.authService.resendOtp(payload.email);
   }
 
   @Post('refresh')
@@ -102,20 +82,11 @@ export class AuthController {
     return this.authService.forgotPassword(payload);
   }
 
-  @Post('verify-reset-otp')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verifikasi OTP untuk reset password' })
-  @ApiResponse({ status: 200, description: 'OTP valid' })
-  @ApiResponse({ status: 400, description: 'OTP tidak valid atau kedaluwarsa' })
-  async verifyResetOtp(@Body() payload: VerifyResetOtpDto): Promise<{ message: string }> {
-    return this.authService.verifyResetOtp(payload);
-  }
-
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reset password menggunakan OTP' })
+  @ApiOperation({ summary: 'Reset password' })
   @ApiResponse({ status: 200, description: 'Password berhasil diubah' })
-  @ApiResponse({ status: 400, description: 'OTP tidak valid atau konfirmasi password tidak cocok' })
+  @ApiResponse({ status: 400, description: 'Konfirmasi password tidak cocok' })
   async resetPassword(@Body() payload: ResetPasswordDto): Promise<{ message: string }> {
     return this.authService.resetPassword(payload);
   }

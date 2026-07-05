@@ -44,44 +44,44 @@ export const AI_TASK_ROUTES: Record<AiTaskType, AiTaskRoute> = {
     fallbacks: [
       {
         provider: 'gemini',
-        model: 'gemini-2.5-flash',
+        model: 'gemini-1.5-flash',
         apiKeysEnv: ['GEMINI_API_KEY'],
       },
     ],
   },
   [AiTaskType.ASSESSMENT_GENERATOR]: {
-    provider: 'groq',
-    model: 'qwen/qwen3-32b',
-    apiKeysEnv: ['GROQ_API_KEY'],
+    provider: 'gemini',
+    model: 'gemini-1.5-pro',
+    apiKeysEnv: ['GEMINI_API_KEY'],
     responseSchema: AssessmentGeneratorSchema,
     temperature: 0.7,
     maxRetries: 2,
     fallbacks: [
       {
-        provider: 'gemini',
-        model: 'gemma-4-26b-a4b-it',
-        apiKeysEnv: ['GEMINI_API_KEY'],
+        provider: 'groq',
+        model: 'mixtral-8x7b-32768',
+        apiKeysEnv: ['GROQ_API_KEY'],
       },
     ],
   },
   [AiTaskType.PROJECT_EVIDENCE]: {
     provider: 'groq',
-    model: 'openai/gpt-oss-20b',
+    model: 'deepseek-r1-distill-llama-70b',
     apiKeysEnv: ['GROQ_API_KEY'],
     responseSchema: ProjectEvidenceSchema,
     temperature: 0.2,
     maxRetries: 2,
     fallbacks: [
       {
-        provider: 'groq',
-        model: 'qwen/qwen3-32b',
-        apiKeysEnv: ['GROQ_API_KEY'],
+        provider: 'gemini',
+        model: 'gemini-1.5-flash-8b',
+        apiKeysEnv: ['GEMINI_API_KEY'],
       },
     ],
   },
   [AiTaskType.BEHAVIORAL_CAREER_ALIGNMENT]: {
     provider: 'groq',
-    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    model: 'gemma2-9b-it',
     apiKeysEnv: ['GROQ_API_KEY'],
     responseSchema: BehavioralCareerAlignmentSchema,
     temperature: 0.5,
@@ -89,14 +89,14 @@ export const AI_TASK_ROUTES: Record<AiTaskType, AiTaskRoute> = {
     fallbacks: [
       {
         provider: 'gemini',
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.0-flash',
         apiKeysEnv: ['GEMINI_API_KEY'],
       },
     ],
   },
   [AiTaskType.SKILL_INIT_CLASSIFICATION]: {
     provider: 'gemini',
-    model: 'gemini-3.1-flash-lite',
+    model: 'gemini-1.5-pro',
     apiKeysEnv: ['GEMINI_API_KEY'],
     responseSchema: SkillInitClassificationSchema,
     temperature: 0.1, // Deterministic — strict classification
@@ -104,7 +104,7 @@ export const AI_TASK_ROUTES: Record<AiTaskType, AiTaskRoute> = {
     fallbacks: [
       {
         provider: 'groq',
-        model: 'llama-3.1-8b-instant',
+        model: 'mixtral-8x7b-32768',
         apiKeysEnv: ['GROQ_API_KEY'],
       },
     ],
@@ -119,15 +119,15 @@ export const AI_TASK_ROUTES: Record<AiTaskType, AiTaskRoute> = {
     fallbacks: [
       {
         provider: 'gemini',
-        model: 'gemma-4-31b-it',
+        model: 'gemini-1.5-pro',
         apiKeysEnv: ['GEMINI_API_KEY'],
       },
     ],
   },
   [AiTaskType.SKILL_INIT_SKILLS_EXPLANATOR]: {
-    provider: 'groq',
-    model: 'openai/gpt-oss-120b',
-    apiKeysEnv: ['GROQ_API_KEY'],
+    provider: 'gemini',
+    model: 'gemini-1.5-flash-8b',
+    apiKeysEnv: ['GEMINI_API_KEY'],
     responseSchema: SkillInitSkillsExplanatorSchema,
     temperature: 0.3,
     maxRetries: 2,
@@ -141,7 +141,7 @@ export const AI_TASK_ROUTES: Record<AiTaskType, AiTaskRoute> = {
   },
   [AiTaskType.SKILL_TAXONOMY_RESOLVER]: {
     provider: 'gemini',
-    model: 'gemini-3-flash',
+    model: 'gemini-2.0-flash',
     apiKeysEnv: ['GEMINI_API_KEY'],
     responseSchema: SkillTaxonomySchema,
     temperature: 0.1, // Deterministic - keep it precise
@@ -149,14 +149,14 @@ export const AI_TASK_ROUTES: Record<AiTaskType, AiTaskRoute> = {
     fallbacks: [
       {
         provider: 'groq',
-        model: 'llama-3.1-8b-instant',
+        model: 'gemma2-9b-it',
         apiKeysEnv: ['GROQ_API_KEY'],
       },
     ],
   },
   [AiTaskType.QUIZ_BATCH_EVALUATION]: {
     provider: 'groq',
-    model: 'llama-3.3-70b-versatile',
+    model: 'mixtral-8x7b-32768',
     apiKeysEnv: ['GROQ_API_KEY'],
     responseSchema: QuizBatchEvaluationSchema,
     temperature: 0.3, // Low temperature for factual grading
@@ -164,7 +164,7 @@ export const AI_TASK_ROUTES: Record<AiTaskType, AiTaskRoute> = {
     fallbacks: [
       {
         provider: 'gemini',
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.0-pro-exp-02-05',
         apiKeysEnv: ['GEMINI_API_KEY'],
       },
     ],

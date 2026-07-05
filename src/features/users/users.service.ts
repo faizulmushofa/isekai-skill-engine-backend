@@ -43,6 +43,7 @@ export class UsersService {
     passwordHash: string;
     otpCode?: string;
     otpExpiresAt?: Date;
+    isEmailVerified?: boolean;
   }): Promise<UserResponse> {
     // Validasi keunikan email
     const existingEmail = await this.usersRepository.findByEmail(data.email);
@@ -66,6 +67,7 @@ export class UsersService {
       passwordHash: data.passwordHash,
       otpCode: data.otpCode,
       otpExpiresAt: data.otpExpiresAt,
+      isEmailVerified: data.isEmailVerified ?? false,
     });
 
     return UserMapper.toResponse(user);

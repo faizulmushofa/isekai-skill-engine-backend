@@ -13,7 +13,46 @@ export class DynamicRoutingService implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit() {
+    await this.syncDefaultRoutesToDb();
     await this.loadOverridesFromDb();
+  }
+
+  /**
+   * Sync static defaults to DB at startup to guarantee valid and free models.
+   */
+  async syncDefaultRoutesToDb() {
+    try {
+      this.logger.log('Syncing default static AI routing configurations to database...');
+      for (const [taskType, route] of Object.entries(AI_TASK_ROUTES)) {
+        const fallback = route.fallbacks && route.fallbacks[0];
+        
+        await this.prisma.aiTaskConfig.upsert({
+          where: { taskType },
+          update: {
+            provider: route.provider,
+            model: route.model,
+            temperature: route.temperature,
+            fallbackProvider: fallback ? fallback.provider : null,
+            fallbackModel: fallback ? fallback.model : null,
+            maxDailyTokens: route.maxDailyTokens ?? 100000,
+            maxMonthlyTokens: route.maxMonthlyTokens ?? 3000000,
+          },
+          create: {
+            taskType,
+            provider: route.provider,
+            model: route.model,
+            temperature: route.temperature,
+            fallbackProvider: fallback ? fallback.provider : null,
+            fallbackModel: fallback ? fallback.model : null,
+            maxDailyTokens: route.maxDailyTokens ?? 100000,
+            maxMonthlyTokens: route.maxMonthlyTokens ?? 3000000,
+          },
+        });
+      }
+      this.logger.log('AI routing configurations synced successfully.');
+    } catch (error) {
+      this.logger.error(`Failed to sync default AI routing configurations to database: ${error.message}`);
+    }
   }
 
   /**

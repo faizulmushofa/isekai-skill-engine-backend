@@ -1,5 +1,5 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CommandBus } from '@nestjs/cqrs';
 import { StartQuizCommand } from './commands/impl/start-quiz.command';
 import { SelectModeCommand } from './commands/impl/select-mode.command';
@@ -11,6 +11,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 import { QuizStateResponse } from './interfaces/quiz-state.interface';
 import { QuotaService } from '../../infrastructure/quota/quota.service';
+import { QuizRepository } from './quiz.repository';
 
 @ApiTags('Quiz')
 @ApiBearerAuth('access-token')
@@ -20,7 +21,14 @@ export class QuizController {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly quotaService: QuotaService,
+    private readonly quizRepository: QuizRepository,
   ) {}
+
+  @Get('history')
+  @ApiOperation({ summary: 'Get quiz attempts history' })
+  async getQuizHistory(@CurrentUser() userId: string) {
+    return this.quizRepository.findAttemptsByUserId(userId);
+  }
 
   @Post('start')
   async startQuiz(
