@@ -9,7 +9,7 @@ services:
     container_name: isekai-skill-backend
     restart: unless-stopped
     ports:
-      - "8091:3090"   # host:container — akses via http://localhost:8091
+      - "127.0.0.1:8091:3090"   # Hanya localhost — nginx yang expose ke publik
 
     # env_file membaca nilai mentah tanpa interpolasi $
     # Gunakan ini untuk semua secrets agar karakter $ tidak di-expand
@@ -22,7 +22,7 @@ services:
       PORT: 3090
 
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3090/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3090/api/docs || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -9,6 +9,7 @@ import { ConfigModule } from '../config/config.module';
 import { PromptGuardService } from './guard/prompt-guard.service';
 import { DynamicRoutingService } from './routing/dynamic-routing.service';
 import { PrismaModule } from '../prisma/prisma.module';
+import { MockAiGenerator } from './mock/mock-generator';
 
 @Module({
   imports: [ConfigModule, PrismaModule],
@@ -21,6 +22,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     GroqProvider,
     PromptGuardService,
     DynamicRoutingService,
+    MockAiGenerator,
   ],
   exports: [AiService, DynamicRoutingService],
 })

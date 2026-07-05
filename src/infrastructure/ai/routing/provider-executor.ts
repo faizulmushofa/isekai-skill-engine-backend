@@ -5,6 +5,8 @@ import { GeminiProvider } from '../providers/gemini.provider';
 import { GroqProvider } from '../providers/groq.provider';
 import { PromptGuardService } from '../guard/prompt-guard.service';
 import { AiTaskRoute } from './ai-routing.config';
+import { MockAiGenerator } from '../mock/mock-generator';
+import { AiTaskType } from '../enums/ai-task-type.enum';
 
 @Injectable()
 export class ProviderExecutor {
@@ -15,6 +17,7 @@ export class ProviderExecutor {
     private readonly geminiProvider: GeminiProvider,
     private readonly groqProvider: GroqProvider,
     private readonly promptGuard: PromptGuardService,
+    private readonly mockGenerator: MockAiGenerator,
   ) {}
 
   /**
@@ -24,6 +27,7 @@ export class ProviderExecutor {
     route: AiTaskRoute,
     systemPrompt: string,
     userPrompt: string,
+    taskType?: AiTaskType,
   ): Promise<{ text: string; usage: { promptTokens: number; completionTokens: number; totalTokens: number } }> {
     
     // 0. Anti-jailbreak: screen user input with Llama Guard
@@ -58,6 +62,21 @@ export class ProviderExecutor {
             );
           }
         }
+      }
+
+      // ── FAILSAFE MOCK ────────────────────────────────────────────────────
+      // If a taskType was provided, return a realistic mock response instead
+      // of crashing the request. This keeps the demo functional even when
+      // API keys are exhausted or invalid.
+      if (taskType) {
+        this.logger.warn(
+          `[ProviderExecutor] All live AI paths failed. Activating MockAiGenerator for task '${taskType}'.`,
+        );
+        const mockText = this.mockGenerator.generate(taskType, userPrompt);
+        return {
+          text: mockText,
+          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        };
       }
 
       throw new InternalServerErrorException(

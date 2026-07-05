@@ -31,7 +31,7 @@ export class AiTaskRouter {
       );
     }
 
-    const { text, usage } = await this.executor.execute(route, systemPrompt, userPrompt);
+    const { text, usage } = await this.executor.execute(route, systemPrompt, userPrompt, taskType as any);
     return { responseText: text, route, usage };
   }
 }
