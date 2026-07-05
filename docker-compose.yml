@@ -10,32 +10,16 @@ services:
     restart: unless-stopped
     ports:
       - "8091:3090"   # host:container — akses via http://localhost:8091
+
+    # env_file membaca nilai mentah tanpa interpolasi $
+    # Gunakan ini untuk semua secrets agar karakter $ tidak di-expand
+    env_file:
+      - .env
+
+    # Override hanya nilai yang TIDAK mengandung karakter $ khusus
     environment:
       NODE_ENV: production
       PORT: 3090
-
-      # ── Database ──────────────────────────────────────────────────────────────
-      DATABASE_URL: ${DATABASE_URL}
-      DIRECT_URL: ${DIRECT_URL}
-
-      # ── AI Keys ───────────────────────────────────────────────────────────────
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      GROQ_API_KEY: ${GROQ_API_KEY}
-
-      # ── Security ──────────────────────────────────────────────────────────────
-      INFRA_SECRET_KEY: ${INFRA_SECRET_KEY}
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
-      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
-
-      # ── CORS Origins ──────────────────────────────────────────────────────────
-      FRONTEND_URL: ${FRONTEND_URL}
-      ADMIN_FRONTEND_URL: ${ADMIN_FRONTEND_URL}
-
-    # Load semua env dari file .env secara otomatis sebagai fallback
-    env_file:
-      - .env
 
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3090/health || exit 1"]
